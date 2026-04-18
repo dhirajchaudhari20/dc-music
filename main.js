@@ -87,13 +87,25 @@ function initAudio() {
     }
 }
 
-function updateSoundParams() {
+function updateSoundParams(e) {
     if (!audioCtx) return;
+    
+    // Sync cross-sliders if event came from one
+    if(e) {
+        if(e.target.id === 'volSlide') $('mVolSlide').value = e.target.value;
+        if(e.target.id === 'mVolSlide') $('volSlide').value = e.target.value;
+        if(e.target.id === 'bstSlide') $('mBstSlide').value = e.target.value;
+        if(e.target.id === 'mBstSlide') $('bstSlide').value = e.target.value;
+        if(e.target.id === 'bssSlide') $('mBssSlide').value = e.target.value;
+        if(e.target.id === 'mBssSlide') $('bssSlide').value = e.target.value;
+    }
+
     const vol = $('volSlide').value / 100;
-    const boost = $('bstSlide').value;
-    const bass = $('bssSlide').value;
+    const boost = parseFloat($('bstSlide').value);
+    const bassBinary = parseFloat($('bssSlide').value);
+    
     gainNode.gain.value = vol * boost;
-    bassFilter.gain.value = bass;
+    bassFilter.gain.value = bassBinary;
     if($('volLvl')) $('volLvl').textContent = Math.round(vol * boost * 100) + '% Boost';
 }
 
@@ -302,4 +314,8 @@ if(localStorage.getItem('dc_music_welcomed') === 'true') {
 
 $('playPauseBtn').onclick = window.togglePlay;
 $('dPlay').onclick = window.togglePlay;
-$('volSlide').oninput = updateSoundParams;
+
+// Audio Engine Bindings (Desktop + Mobile Sync)
+['volSlide', 'bstSlide', 'bssSlide', 'mVolSlide', 'mBstSlide', 'mBssSlide'].forEach(id => {
+    if($(id)) $(id).oninput = updateSoundParams;
+});

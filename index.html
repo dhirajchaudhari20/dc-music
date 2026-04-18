@@ -3,174 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DC MUSIC - Premium Sound</title>
-    <meta name="description" content="DC MUSIC - Premium high-bass music player with YouTube integration.">
+    <title>DC MUSIC - Premium</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/3844/3844724.png">
 </head>
 <body>
-    <!-- Welcome Overlay -->
+    <!-- Premium Welcome Screen -->
     <div id="welcomeOverlay" class="welcome-overlay">
         <div class="welcome-card">
-            <div class="nano-logo big">DC</div>
-            <h1>Welcome to DC MUSIC</h1>
-            <p>Experience high-bass, unlimited music with premium sound engineering.</p>
+            <div class="nano-logo">DC</div>
+            <h1>Premium Sound.</h1>
+            <p>Experience high-bass, cloud-synced music with our advanced DSA recommendation engine.</p>
             <div class="auth-buttons">
                 <button class="auth-btn google" onclick="googleSignIn()">
-                    <i data-lucide="log-in"></i> Sign in with Google
+                    Sign in with Google
                 </button>
                 <button class="auth-btn guest" onclick="closeWelcome()">
-                    Log in as Guest
+                    Continue as Guest
                 </button>
             </div>
-            <p class="terms">By continuing you agree to the fun of high-bass music.</p>
         </div>
     </div>
 
     <div id="app" class="app-container">
-        <!-- Sidebar (Desktop only) -->
+        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">
                 <div class="nano-logo">DC</div>
                 <span>MUSIC</span>
             </div>
             
-            <div class="search-box">
-                <i data-lucide="search"></i>
-                <input type="text" id="searchInput" placeholder="Search">
-            </div>
-
             <nav class="nav-links">
-                <div class="nav-section">
-                    <a href="#" class="nav-item active" data-view="listen now"><i data-lucide="play-circle"></i> Listen Now</a>
+                <div>
+                    <a href="#" class="nav-item active" data-view="home"><i data-lucide="play-circle"></i> Listen Now</a>
                     <a href="#" class="nav-item" data-view="browse"><i data-lucide="layout-grid"></i> Browse</a>
-                    <a href="#" class="nav-item" data-view="radio"><i data-lucide="radio"></i> Radio</a>
-                </div>
-
-                <div class="nav-section">
-                    <h3>Library</h3>
-                    <a href="#" class="nav-item" data-view="recently added"><i data-lucide="clock"></i> Recently Added</a>
-                    <a href="#" class="nav-item" data-view="artists"><i data-lucide="mic-2"></i> Artists</a>
-                    <a href="#" class="nav-item" data-view="albums"><i data-lucide="disc"></i> Albums</a>
-                    <a href="#" class="nav-item" data-view="songs"><i data-lucide="music-2"></i> Songs</a>
+                    <a href="#" class="nav-item" data-view="search"><i data-lucide="search"></i> Search</a>
                 </div>
             </nav>
         </aside>
 
-        <!-- Main Content -->
+        <!-- Main -->
         <main class="main-content">
-            <header class="top-bar">
-                <div class="mobile-search-trigger md-hidden">
-                    <i data-lucide="search"></i>
-                </div>
-                <div class="user-profile" title="Sign In / Out">
+            <header style="display:flex; justify-content:flex-end; margin-bottom:20px;">
+                <div class="user-profile" style="width:36px; height:36px; background:#2c2c2e; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;">
                     <i data-lucide="user"></i>
                 </div>
-                <div class="info-trigger" id="infoBtn" style="margin-left: 15px; cursor: pointer; color: var(--text-secondary);">
-                    <i data-lucide="info"></i>
-                </div>
             </header>
-
-            <section id="content-area">
-                <!-- Content injected here -->
-            </section>
+            <section id="content-area"></section>
         </main>
 
-        <!-- Mobile Bottom Nav -->
-        <nav class="mobile-nav">
-            <a href="#" class="mobile-nav-item active" data-view="listen now">
-                <i data-lucide="play-circle"></i>
-                <span>Listen Now</span>
-            </a>
-            <a href="#" class="mobile-nav-item" data-view="browse">
-                <i data-lucide="layout-grid"></i>
-                <span>Browse</span>
-            </a>
-            <a href="#" class="mobile-nav-item" data-view="radio">
-                <i data-lucide="radio"></i>
-                <span>Radio</span>
-            </a>
-            <a href="#" class="mobile-nav-item" data-view="search-mobile">
-                <i data-lucide="search"></i>
-                <span>Search</span>
-            </a>
-        </nav>
-
-        <!-- Player Bar -->
+        <!-- Player -->
         <footer class="player-bar">
-            <div class="mobile-progress">
-                <div id="mobileProgressFill"></div>
-            </div>
-
             <div class="now-playing">
-                <img id="currentAlbumArt" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300" alt="Art">
+                <img id="currentArt" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200">
                 <div class="track-info">
-                    <div id="currentTrackTitle" class="track-title">Not Playing</div>
-                    <div id="currentTrackArtist" class="track-artist">Select a song</div>
+                    <h4 id="currentTitle" style="font-size:14px; font-weight:600;">Not Playing</h4>
+                    <p id="currentArtist" style="font-size:12px; color:#8e8e93;">Select music</p>
                 </div>
             </div>
 
             <div class="player-controls">
-                <div class="control-buttons">
-                    <button class="icon-btn shuffle-btn desktop-only"><i data-lucide="shuffle"></i></button>
-                    <button class="icon-btn" id="prevBtn"><i data-lucide="skip-back"></i></button>
-                    <button class="icon-btn play-pause-btn" id="playPauseBtn">
-                        <i data-lucide="play" id="playIcon"></i>
-                    </button>
-                    <button class="icon-btn" id="nextBtn"><i data-lucide="skip-forward"></i></button>
-                    <button class="icon-btn repeat-btn desktop-only"><i data-lucide="repeat"></i></button>
+                <div class="control-btns">
+                    <button id="prevBtn" style="background:none; border:none; color:white; cursor:pointer;"><i data-lucide="skip-back"></i></button>
+                    <button class="play-btn" id="playPauseBtn"><i data-lucide="play"></i></button>
+                    <button id="nextBtn" style="background:none; border:none; color:white; cursor:pointer;"><i data-lucide="skip-forward"></i></button>
                 </div>
-                <div class="progress-bar-container desktop-only">
-                    <span class="time start-time">0:00</span>
-                    <div class="progress-bar-wrapper">
-                        <input type="range" id="progressBar" min="0" max="100" value="0">
-                    </div>
-                    <span class="time end-time">0:00</span>
+                <div style="width:100%; display:flex; align-items:center; gap:10px;">
+                    <span id="curTime" style="font-size:10px; color:#8e8e93; min-width:30px;">0:00</span>
+                    <input type="range" id="progBar" min="0" max="100" value="0" style="flex-grow:1;">
+                    <span id="durTime" style="font-size:10px; color:#8e8e93; min-width:30px;">0:00</span>
                 </div>
             </div>
 
-            <div class="volume-controls desktop-only">
-                <button class="icon-btn" id="volumeLow" title="Decrease Volume"><i data-lucide="volume-1"></i></button>
-                <div class="vol-wrapper">
-                    <input type="range" id="volumeSlider" min="0" max="100" value="100">
-                    <span id="volLevel">100%</span>
+            <div class="vol-controls desktop-only" style="width:250px; display:flex; align-items:center; gap:15px; justify-content:flex-end;">
+                <i data-lucide="volume-2" style="width:16px; color:#8e8e93;"></i>
+                <div style="display:flex; flex-direction:column; align-items:center;">
+                    <input type="range" id="volSlide" min="0" max="100" value="100" style="width:80px;">
+                    <span id="volLvl" style="font-size:9px; color:var(--accent-color); font-weight:700;">100%</span>
                 </div>
-                <button class="icon-btn" id="volumeHigh" title="Increase Volume"><i data-lucide="volume-2"></i></button>
-                <div class="audio-boost-panel">
-                    <div class="boost-control">
-                        <label>EXTRA VOL</label>
-                        <input type="range" id="extraVolumeControl" min="1" max="5" step="0.5" value="1">
-                        <span id="extraVolLevel">1x</span>
+                <div style="display:flex; gap:10px; background:rgba(255,255,255,0.05); padding:6px 12px; border-radius:15px;">
+                    <div style="text-align:center;">
+                        <span style="font-size:8px; display:block; color:#8e8e93;">BASS</span>
+                        <input type="range" id="bssSlide" min="0" max="25" value="0" style="width:40px;">
                     </div>
-                    <div class="boost-control">
-                        <label>SUPER BASS</label>
-                        <input type="range" id="bassControl" min="0" max="25" step="1" value="0">
-                        <span id="bassLevel">0dB</span>
+                    <div style="text-align:center;">
+                        <span style="font-size:8px; display:block; color:#8e8e93;">BOOST</span>
+                        <input type="range" id="bstSlide" min="1" max="5" step="0.5" value="1" style="width:40px;">
                     </div>
                 </div>
             </div>
         </footer>
 
-        <div class="dynamic-bg"></div>
+        <!-- Mobile Nav -->
+        <nav class="mobile-nav">
+            <a href="#" class="nav-item-m active" data-view="home"><i data-lucide="play-circle"></i><span>Listen</span></a>
+            <a href="#" class="nav-item-m" data-view="browse"><i data-lucide="layout-grid"></i><span>Browse</span></a>
+            <a href="#" class="nav-item-m" data-view="search"><i data-lucide="search"></i><span>Search</span></a>
+        </nav>
     </div>
 
-    <!-- Mobile Search Overlay -->
-    <div id="searchOverlay" class="mobile-overlay">
-        <div class="overlay-header">
-            <input type="text" id="mobileSearchInput" placeholder="Search for music...">
-            <button class="close-overlay">Cancel</button>
-        </div>
-        <div id="mobileSearchResults" class="overlay-content"></div>
-    </div>
-
-    <div id="yt-hidden-player" style="position:fixed; top:-999px; left:-999px"></div>
+    <div id="yt-hidden-player" style="position:fixed; top:-999px;"></div>
     <script src="main.js"></script>
+    <div class="dynamic-bg" style="position:fixed; inset:0; z-index:-1; opacity:0.1; background:#000;"></div>
 </body>
 </html>

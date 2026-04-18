@@ -10,7 +10,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
@@ -62,7 +61,7 @@
             </header>
 
             <section id="content-area">
-                <!-- Content will be injected by main.js -->
+                <!-- Content injected here -->
             </section>
         </main>
 
@@ -121,22 +120,26 @@
 
             <div class="volume-controls desktop-only">
                 <button class="icon-btn" id="volumeLow" title="Decrease Volume"><i data-lucide="volume-1"></i></button>
-                <input type="range" id="volumeSlider" min="0" max="100" value="100" title="System Volume">
+                <div class="vol-wrapper">
+                    <input type="range" id="volumeSlider" min="0" max="100" value="100">
+                    <span id="volLevel">100%</span>
+                </div>
                 <button class="icon-btn" id="volumeHigh" title="Increase Volume"><i data-lucide="volume-2"></i></button>
                 <div class="audio-boost-panel">
                     <div class="boost-control">
-                        <label for="extraVolumeControl">Extra Vol</label>
-                        <input type="range" id="extraVolumeControl" min="1" max="5" step="0.5" value="1" title="Boost beyond 100%">
+                        <label>EXTRA VOL</label>
+                        <input type="range" id="extraVolumeControl" min="1" max="5" step="0.5" value="1">
+                        <span id="extraVolLevel">1x</span>
                     </div>
                     <div class="boost-control">
-                        <label for="bassControl">Super Bass</label>
-                        <input type="range" id="bassControl" min="0" max="25" step="1" value="0" title="Bass Booster">
+                        <label>SUPER BASS</label>
+                        <input type="range" id="bassControl" min="0" max="25" step="1" value="0">
+                        <span id="bassLevel">0dB</span>
                     </div>
                 </div>
             </div>
         </footer>
 
-        <!-- Dynamic Background -->
         <div class="dynamic-bg"></div>
     </div>
 
@@ -149,7 +152,7 @@
         <div id="mobileSearchResults" class="overlay-content"></div>
     </div>
 
-    <div id="yt-hidden-player"></div>
+    <div id="yt-hidden-player" style="position:fixed; top:-999px; left:-999px"></div>
     <script src="main.js"></script>
 </body>
 </html>

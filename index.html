@@ -10,6 +10,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/3844/3844724.png">
 </head>
 <body>
     <div id="app" class="app-container">
@@ -48,8 +53,11 @@
                 <div class="mobile-search-trigger md-hidden">
                     <i data-lucide="search"></i>
                 </div>
-                <div class="user-profile">
+                <div class="user-profile" title="Sign In / Out">
                     <i data-lucide="user"></i>
+                </div>
+                <div class="info-trigger" id="infoBtn" style="margin-left: 15px; cursor: pointer; color: var(--text-secondary);">
+                    <i data-lucide="info"></i>
                 </div>
             </header>
 

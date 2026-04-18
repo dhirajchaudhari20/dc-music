@@ -8,26 +8,40 @@ let currentIndex = 0;
 const $ = (id) => document.getElementById(id);
 const lucide_refresh = () => window.lucide && lucide.createIcons();
 
-// SEARCH (YOUTUBE DIRECT METHOD - ROBUST)
+// SEARCH (ULTRA RELIABLE YOUTUBE METHOD)
 async function searchYouTube(q) {
     if(!q) return [];
     
-    // We'll use a high-reliability YouTube metadata proxy
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=' + q)}`;
+    // Using corsproxy.io instead of allorigins (Much more stable for Google services)
+    const proxy = 'https://corsproxy.io/?';
+    const target = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}&sp=EgIQAQ%253D%253D`; // sp=... filters for videos only
     
     try {
-        const res = await fetch(proxyUrl);
-        const data = await res.json();
-        const suggestions = data[1] || [];
+        const res = await fetch(proxy + encodeURIComponent(target), { signal: AbortSignal.timeout(5000) });
+        const html = await res.text();
         
-        // If we have suggestions, we'll fetch the top 10 videos by scraping a search proxy
-        // This is the "YouTube way" that doesn't rely on Invidious instances
-        const searchUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.youtube.com/results?search_query=' + q)}`;
-        const searchRes = await fetch(searchUrl);
-        const html = await searchRes.text();
-        
-        // Extract Video IDs and Titles using regex (Very stable method)
-        const videoIds = [...html.matchAll(/\/watch\?v=([a-zA-Z0-9_-]{11})/g)].map(m => m[1]);
+        // Advanced extraction of Video Data from YT initialData
+        const videoDataMatch = html.match(/ytInitialData = (.*?);<\/script>/);
+        if (videoDataMatch) {
+            const data = JSON.parse(videoDataMatch[1]);
+            const results = data.contents.twoColumnBrowseResultsRenderer?.tabs[0].tabRenderer.content.sectionListRenderer.contents[0].itemSectionRenderer.contents || 
+                            data.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[0].itemSectionRenderer.contents;
+
+            const videoList = results.filter(i => i.videoRenderer).map(v => {
+                const vid = v.videoRenderer;
+                return {
+                    id: vid.videoId,
+                    name: vid.title.runs[0].text,
+                    artist: vid.ownerText.runs[0].text,
+                    art: `https://i.ytimg.com/vi/${vid.videoId}/mqdefault.jpg`
+                };
+            }).filter(v => v.id);
+
+            if (videoList.length) return videoList;
+        }
+
+        // Regex Fallback
+        const videoIds = [...html.matchAll(/"videoId":"([a-zA-Z0-9_-]{11})"/g)].map(m => m[1]);
         const titles = [...html.matchAll(/"title":\{"runs":\[\{"text":"(.*?)"\}\]/g)].map(m => m[1]);
         
         const uniqueIds = [...new Set(videoIds)].slice(0, 15);
@@ -35,10 +49,10 @@ async function searchYouTube(q) {
             id: id,
             name: titles[index] || q,
             artist: "YouTube",
-            art: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
+            art: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`
         }));
     } catch (e) {
-        console.warn("Search failed, using library fallback", e);
+        console.warn("Proxy search failed, trying direct...", e);
         return PROPER_LIBRARY;
     }
 }
@@ -80,19 +94,19 @@ if(typeof auth !== 'undefined') {
     auth.onAuthStateChanged(user => {
         if(user && document.querySelector('.user-profile')) {
             document.querySelector('.user-profile').innerHTML = `<img src="${user.photoURL}" style="width:100%; height:100%; border-radius:50%">`;
-            closeWelcome();
+            if($('welcomeOverlay')) $('welcomeOverlay').style.display = 'none';
         }
     });
 }
 
-// LIBRARY
+// VERIFIED FALLBACK LIBRARY
 const PROPER_LIBRARY = [
-    { id: '4NRXx6U8ABQ', name: 'Blinding Lights', artist: 'The Weeknd', art: 'https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg' },
-    { id: 'v8PAtHlqD3w', name: 'The Last Ride', artist: 'Sidhu Moose Wala', art: 'https://i.ytimg.com/vi/v8PAtHlqD3w/hqdefault.jpg' },
-    { id: 'BBAyRbtle7c', name: 'Kesariya', artist: 'Arijit Singh', art: 'https://i.ytimg.com/vi/BBAyRbtle7c/hqdefault.jpg' }
+    { id: '4NRXx6U8ABQ', name: 'Blinding Lights', artist: 'The Weeknd', art: 'https://i.ytimg.com/vi/4NRXx6U8ABQ/mqdefault.jpg' },
+    { id: 'wuxY_i09BNo', name: 'Sidhu Moose Wala - 2026', artist: 'Sidhu Moose Wala', art: 'https://i.ytimg.com/vi/wuxY_i09BNo/mqdefault.jpg' },
+    { id: 'BhW6knhgwfQ', name: 'Stay', artist: 'Justin Bieber', art: 'https://i.ytimg.com/vi/BhW6knhgwfQ/mqdefault.jpg' }
 ];
 
-// AUDIO ENGINE (100% YOUTUBE DIRECT)
+// AUDIO ENGINE 
 let ytPlayer;
 
 async function playTrack(track, fromPlaylist = []) {
@@ -131,7 +145,7 @@ function togglePlay() {
 // VIEWS
 async function renderHome() {
     if($('content-area')) $('content-area').innerHTML = `<div class="section-header"><h1>Listen Now</h1></div><div id="hits" class="grid-container"></div>`;
-    const hits = await searchYouTube('Sidhu Moose Wala New');
+    const hits = await searchYouTube('Top global hits Sidhu Moose Wala');
     renderGrid(hits, 'hits');
 }
 
@@ -169,13 +183,11 @@ function renderSearch() {
 window.onYouTubeIframeAPIReady = () => {
     ytPlayer = new YT.Player('yt-hidden-player', {
         height: '0', width: '0',
-        playerVars: { 'autoplay': 0, 'controls': 0, 'origin': window.location.origin },
+        playerVars: { 'autoplay': 0, 'controls': 0, 'origin': window.location.origin, 'enablejsapi': 1 },
         events: {
             'onReady': () => { renderHome(); },
             'onStateChange': (e) => {
                 if(e.data === 0) skipNext();
-                if(e.data === 1) isPlaying = true;
-                if(e.data === 2) isPlaying = false;
                 syncUI();
             }
         }

@@ -18,6 +18,7 @@ const dynamicBg = document.querySelector('.dynamic-bg');
 const mobileProgressFill = document.getElementById('mobileProgressFill');
 const userProfile = document.querySelector('.user-profile');
 const infoBtn = document.getElementById('infoBtn');
+const welcomeOverlay = document.getElementById('welcomeOverlay');
 
 // APP STATE
 let isPlaying = false;
@@ -42,16 +43,32 @@ if (typeof firebase !== 'undefined') {
     var auth = firebase.auth();
 }
 
-// User Auth
+// User Auth & Welcome Flow
 let currentUser = null;
-if (userProfile) { userProfile.onclick = () => { if (!currentUser) googleSignIn(); else googleSignOut(); }; }
-async function googleSignIn() { try { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); } catch (e) { console.error(e); } }
-function googleSignOut() { auth.signOut().then(() => location.reload()); }
+
+function closeWelcome() {
+    if (welcomeOverlay) welcomeOverlay.style.display = 'none';
+    localStorage.setItem('dc_music_welcomed', 'true');
+}
+
+if (localStorage.getItem('dc_music_welcomed') === 'true') {
+    if (welcomeOverlay) welcomeOverlay.style.display = 'none';
+}
+
+async function googleSignIn() { 
+    try { 
+        const result = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); 
+        if (result.user) closeWelcome();
+    } catch (e) { console.error(e); } 
+}
+function googleSignOut() { auth.signOut().then(() => { localStorage.removeItem('dc_music_welcomed'); location.reload(); }); }
+
 if (typeof auth !== 'undefined') {
     auth.onAuthStateChanged((user) => {
         if (user) {
             currentUser = user;
             if (userProfile) userProfile.innerHTML = `<img src="${user.photoURL}" style="width:100%; height:100%; border-radius:50%">`;
+            closeWelcome();
             fetchUserTaste(user.uid);
         }
     });
@@ -83,7 +100,7 @@ const PROPER_LIBRARY = [
     { id: '4NRXx6U8ABQ', name: 'Blinding Lights', artist: 'The Weeknd', art: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=400' },
     { id: 'jgW4as808No', name: 'Stay', artist: 'The Kid LAROI & Justin Bieber', art: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?q=80&w=400' },
     { id: 'BBAyRbtle7c', name: 'Kesariya', artist: 'Arijit Singh', art: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?q=80&w=400' },
-    { id: 'hOhKkvT_f6E', name: 'Brown Munde', artist: 'AP Dhillon', art: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=400' }
+    { id: 'v8PAtHlqD3w', name: 'The Last Ride', artist: 'Sidhu Moose Wala', art: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?q=80&w=400' }
 ];
 
 // ENGINE
@@ -142,9 +159,9 @@ function initAudioContext() {
 async function playTrack(track, fromPlaylist = []) {
     currentTrack = track;
     if (fromPlaylist && fromPlaylist.length) { playlist = fromPlaylist; currentIndex = playlist.findIndex(t => t.id === track.id); }
-    currentTrackTitle.textContent = track.name;
-    currentTrackArtist.textContent = track.artist;
-    currentAlbumArt.src = track.art;
+    if (currentTrackTitle) currentTrackTitle.textContent = track.name;
+    if (currentTrackArtist) currentTrackArtist.textContent = track.artist;
+    if (currentAlbumArt) currentAlbumArt.src = track.art;
     updateDynamicBackground(track.art);
     trackUserTaste(track);
 
@@ -156,7 +173,7 @@ async function playTrack(track, fromPlaylist = []) {
         if (format) {
             if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo(); 
             initAudioContext();
-            nativeAudio.src = format.url; nativeAudio.play();
+            nativeAudio.src = format.url; nativeAudio.play().catch(() => {});
             nativeAudio.onended = skipNext;
             isPlaying = true; updateUISync(); updateMediaSession(); return;
         }
@@ -168,15 +185,23 @@ async function playTrack(track, fromPlaylist = []) {
 
 function updateMediaSession() {
     if ('mediaSession' in navigator && currentTrack) {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: currentTrack.name, artist: currentTrack.artist, artwork: [{ src: currentTrack.art, sizes: '512x512', type: 'image/jpeg' }] });
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: currentTrack.name, artist: currentTrack.artist,
+            artwork: [{ src: currentTrack.art, sizes: '512x512', type: 'image/jpeg' }]
+        });
+        navigator.mediaSession.setActionHandler('play', togglePlay);
+        navigator.mediaSession.setActionHandler('pause', togglePlay);
+        navigator.mediaSession.setActionHandler('nexttrack', skipNext);
+        navigator.mediaSession.setActionHandler('previoustrack', skipPrev);
     }
 }
 
 async function fetchHomeContent() {
     contentArea.innerHTML = `<div class="skeleton-card" style="height:350px;"></div>`;
-    let hits = await searchYouTube('Sidhu Moose Wala New');
+    let hits = await searchYouTube('Sidhu Moose Wala Top');
     hits = rankRecommendations(hits);
-    contentArea.innerHTML = `<div class="section-header"><h1>For You</h1></div><div class="hero-section"><div class="hero-content"><span class="badge">DSA RANKED</span><h2>${hits[0].name}</h2><button class="play-btn-large" id="heroPlay"><i data-lucide="play"></i> Play Heavy</button></div><img src="${hits[0].art}" class="hero-img"></div><div id="hitsGrid" class="grid-container"></div>`;
+    const greeting = currentUser ? `Hey, ${currentUser.displayName.split(' ')[0]}!` : "Listen Now";
+    contentArea.innerHTML = `<div class="section-header"><h1>${greeting}</h1></div><div class="hero-section"><div class="hero-content"><span class="badge">DC ALGO RECOMMEND</span><h2>${hits[0].name}</h2><button class="play-btn-large" id="heroPlay"><i data-lucide="play"></i> Play Heavy</button></div><img src="${hits[0].art}" class="hero-img"></div><div id="hitsGrid" class="grid-container"></div>`;
     renderTracks(hits.slice(0, 10), 'hitsGrid', hits);
     document.getElementById('heroPlay').onclick = () => playTrack(hits[0], hits);
 }
@@ -202,24 +227,18 @@ function updateBoosts() {
     const sysVol = parseInt(document.getElementById('volumeSlider').value);
     const extraVol = parseFloat(document.getElementById('extraVolumeControl').value);
     const bass = parseFloat(document.getElementById('bassControl').value);
-    
-    document.getElementById('volLevel').textContent = sysVol + '%';
-    document.getElementById('extraVolLevel').textContent = extraVol + 'x';
-    document.getElementById('bassLevel').textContent = bass + 'dB';
-
+    if (document.getElementById('volLevel')) document.getElementById('volLevel').textContent = sysVol + '%';
+    if (document.getElementById('extraVolLevel')) document.getElementById('extraVolLevel').textContent = extraVol + 'x';
+    if (document.getElementById('bassLevel')) document.getElementById('bassLevel').textContent = bass + 'dB';
     gainNode.gain.value = extraVol * (sysVol / 100);
     bassFilter.gain.value = bass;
 }
 
-// SCRUBBING FIX
 if (progressBar) {
     progressBar.addEventListener('input', () => {
         const p = progressBar.value / 100;
-        if (nativeAudio.src && !isNaN(nativeAudio.duration)) {
-            nativeAudio.currentTime = p * nativeAudio.duration;
-        } else if (ytPlayer && ytPlayer.getDuration) {
-            ytPlayer.seekTo(p * ytPlayer.getDuration());
-        }
+        if (nativeAudio.src && !isNaN(nativeAudio.duration)) nativeAudio.currentTime = p * nativeAudio.duration;
+        else if (ytPlayer && ytPlayer.getDuration) ytPlayer.seekTo(p * ytPlayer.getDuration());
     });
 }
 
@@ -229,11 +248,12 @@ function togglePlay() {
     isPlaying = !isPlaying; updateUISync();
 }
 function updateUISync() {
-    playIcon.setAttribute('data-lucide', isPlaying ? 'pause' : 'play');
+    if (playIcon) playIcon.setAttribute('data-lucide', isPlaying ? 'pause' : 'play');
     if (window.lucide) lucide.createIcons();
-    isPlaying ? currentAlbumArt.classList.add('playing') : currentAlbumArt.classList.remove('playing');
+    if (currentAlbumArt) isPlaying ? currentAlbumArt.classList.add('playing') : currentAlbumArt.classList.remove('playing');
 }
 function skipNext() { if (playlist.length) { currentIndex = (currentIndex + 1) % playlist.length; playTrack(playlist[currentIndex]); } }
+function skipPrev() { if (playlist.length) { currentIndex = (currentIndex - 1 + playlist.length) % playlist.length; playTrack(playlist[currentIndex]); } }
 function formatTime(s) { if (isNaN(s)) return "0:00"; const m = Math.floor(s/60); const sec = Math.floor(s%60); return `${m}:${sec.toString().padStart(2, '0')}`; }
 
 window.addEventListener('DOMContentLoaded', () => { 
@@ -243,9 +263,10 @@ window.addEventListener('DOMContentLoaded', () => {
         else if (v === 'browse') renderBrowse(); 
         else if (v === 'search-mobile') { searchOverlay.style.display='flex'; mobileSearchInput.focus(); }
     });
-    if (infoBtn) infoBtn.onclick = () => alert("DC Music v2 | Master Build");
-    document.querySelector('.mobile-search-trigger').onclick = () => { searchOverlay.style.display = 'flex'; mobileSearchInput.focus(); };
-    document.querySelector('.close-overlay').onclick = () => searchOverlay.style.display = 'none';
+    const trigger = document.querySelector('.mobile-search-trigger');
+    if (trigger) trigger.onclick = () => { searchOverlay.style.display = 'flex'; mobileSearchInput.focus(); };
+    const closeBtn = document.querySelector('.close-overlay');
+    if (closeBtn) closeBtn.onclick = () => searchOverlay.style.display = 'none';
 });
 
 setInterval(() => {
@@ -275,8 +296,8 @@ async function handleSearch(q, cId) {
     else renderTracks(r, cId, r); 
 }
 
-const nBtn = document.getElementById('nextBtn');
-if (nBtn) nBtn.onclick = skipNext;
+if (document.getElementById('prevBtn')) document.getElementById('prevBtn').onclick = skipPrev;
+if (document.getElementById('nextBtn')) document.getElementById('nextBtn').onclick = skipNext;
 if (playPauseBtn) playPauseBtn.onclick = togglePlay;
 
 function updateDynamicBackground(url) {

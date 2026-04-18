@@ -16,6 +16,24 @@
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/3844/3844724.png">
 </head>
 <body>
+    <!-- Welcome Overlay -->
+    <div id="welcomeOverlay" class="welcome-overlay">
+        <div class="welcome-card">
+            <div class="nano-logo big">DC</div>
+            <h1>Welcome to DC MUSIC</h1>
+            <p>Experience high-bass, unlimited music with premium sound engineering.</p>
+            <div class="auth-buttons">
+                <button class="auth-btn google" onclick="googleSignIn()">
+                    <i data-lucide="log-in"></i> Sign in with Google
+                </button>
+                <button class="auth-btn guest" onclick="closeWelcome()">
+                    Log in as Guest
+                </button>
+            </div>
+            <p class="terms">By continuing you agree to the fun of high-bass music.</p>
+        </div>
+    </div>
+
     <div id="app" class="app-container">
         <!-- Sidebar (Desktop only) -->
         <aside class="sidebar">

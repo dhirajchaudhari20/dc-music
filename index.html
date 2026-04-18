@@ -18,11 +18,11 @@
             <div class="nano-logo">DC</div>
             <h1>Premium Sound.</h1>
             <p>Experience high-bass, cloud-synced music with our advanced DSA recommendation engine.</p>
-            <div class="auth-buttons">
+            <div class="auth-buttons" style="margin-top:40px;">
                 <button class="auth-btn google" onclick="googleSignIn()">
                     <i data-lucide="log-in"></i> Sign in with Google
                 </button>
-                <button class="auth-btn guest" onclick="closeWelcome()">
+                <button class="auth-btn guest" onclick="closeWelcome()" style="background: rgba(255,255,255,0.05); color:white; border:none; padding:15px; border-radius:15px; cursor:pointer; width:100%; font-weight:700;">
                     Continue as Guest
                 </button>
             </div>
@@ -38,17 +38,10 @@
             </div>
             
             <nav class="nav-links">
-                <div>
-                    <p class="nav-label">MENU</p>
-                    <a href="#" class="nav-item active" data-view="home"><i data-lucide="play-circle"></i> Listen Now</a>
-                    <a href="#" class="nav-item" data-view="browse"><i data-lucide="layout-grid"></i> Browse</a>
-                    <a href="#" class="nav-item" data-view="search"><i data-lucide="search"></i> Search</a>
-                </div>
-                <div style="margin-top:40px;">
-                    <p class="nav-label">LIBRARY</p>
-                    <a href="#" class="nav-item" data-view="library"><i data-lucide="library"></i> My Playlist</a>
-                    <a href="#" class="nav-item" id="automixBtn"><i data-lucide="zap"></i> Automix AI</a>
-                </div>
+                <p class="nav-label">FOR YOU</p>
+                <a href="#" class="nav-item active" data-view="home"><i data-lucide="play-circle"></i> Listen Now</a>
+                <a href="#" class="nav-item" data-view="library"><i data-lucide="library"></i> Library</a>
+                <a href="#" class="nav-item" id="automixBtn"><i data-lucide="zap"></i> Automix AI</a>
             </nav>
 
             <div class="user-profile-bar">
@@ -65,70 +58,73 @@
         <!-- Main -->
         <main class="main-content">
             <header class="main-header">
-                <div class="header-search">
+                <div class="pill-search">
                     <i data-lucide="search"></i>
                     <input type="text" placeholder="Artists, Songs, Lyrics" id="topSearch">
                 </div>
             </header>
-            <section id="content-area"></section>
+            
+            <section id="content-area">
+                <!-- Content gets injected here -->
+            </section>
         </main>
 
         <!-- Player -->
         <footer class="player-bar">
             <div class="now-playing">
-                <img id="currentArt" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200">
+                <img id="currentArt" src="https://i.ytimg.com/vi/4NRXx6U8ABQ/mqdefault.jpg">
                 <div class="track-info">
                     <h4 id="currentTitle">Not Playing</h4>
-                    <p id="currentArtist">Select music</p>
+                    <p id="currentArtist">Select music to start</p>
                 </div>
-                <button id="likeBtn" class="icon-btn"><i data-lucide="heart"></i></button>
+                <button id="likeBtn" class="icon-btn" style="background:none; border:none; margin-left:15px; cursor:pointer;"><i data-lucide="heart" style="color:#8e8e93; width:22px;"></i></button>
             </div>
 
             <div class="player-controls">
                 <div class="control-btns">
-                    <button id="prevBtn" class="icon-btn"><i data-lucide="skip-back"></i></button>
+                    <button id="prevBtn" class="icon-btn" style="background:none; border:none; cursor:pointer;"><i data-lucide="skip-back" style="color:white; width:24px;"></i></button>
                     <button class="play-btn" id="playPauseBtn"><i data-lucide="play"></i></button>
-                    <button id="nextBtn" class="icon-btn"><i data-lucide="skip-forward"></i></button>
+                    <button id="nextBtn" class="icon-btn" style="background:none; border:none; cursor:pointer;"><i data-lucide="skip-forward" style="color:white; width:24px;"></i></button>
                 </div>
                 <div class="progress-container">
                     <span id="curTime">0:00</span>
-                    <div class="progress-bar-wrapper">
+                    <div class="prog-wrapper">
+                        <div id="progFill"></div>
                         <input type="range" id="progBar" min="0" max="100" value="0">
-                        <div id="progFill" class="progress-fill"></div>
                     </div>
                     <span id="durTime">0:00</span>
                 </div>
             </div>
 
-            <div class="audio-engine-controls">
-                <div class="vol-group">
-                    <i data-lucide="volume-2" id="volIcon"></i>
-                    <input type="range" id="volSlide" min="0" max="100" value="100">
-                </div>
-                <div class="boost-panel">
-                    <div class="boost-item">
+            <div class="audio-engine">
+                <div class="boost-cluster">
+                    <div class="boost-unit">
                         <label>BASS</label>
                         <input type="range" id="bssSlide" min="0" max="30" value="0">
                     </div>
-                    <div class="boost-item">
+                    <div class="boost-unit">
                         <label>BOOST</label>
                         <input type="range" id="bstSlide" min="1" max="10" step="0.5" value="1">
                     </div>
-                    <div class="boost-val" id="volLvl">100%</div>
+                    <div class="boost-unit" id="volLvl" style="font-size:12px; font-weight:800; min-width:40px;">100%</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; width:120px;">
+                    <i data-lucide="volume-2" style="width:18px; color:#8e8e93"></i>
+                    <input type="range" id="volSlide" min="0" max="100" value="100" style="width:100%;">
                 </div>
             </div>
         </footer>
 
         <!-- Mobile Nav -->
         <nav class="mobile-nav">
-            <a href="#" class="nav-item-m active" data-view="home"><i data-lucide="play-circle"></i><span>Listen</span></a>
-            <a href="#" class="nav-item-m" data-view="library"><i data-lucide="library"></i><span>Library</span></a>
-            <a href="#" class="nav-item-m" data-view="search"><i data-lucide="search"></i><span>Search</span></a>
+            <a href="#" class="nav-m-item active" data-view="home"><i data-lucide="play-circle"></i><span>Listen</span></a>
+            <a href="#" class="nav-m-item" data-view="library"><i data-lucide="library"></i><span>Library</span></a>
+            <a href="#" class="nav-m-item" id="mobileSearchBtn"><i data-lucide="search"></i><span>Search</span></a>
         </nav>
     </div>
 
     <div id="yt-hidden-player" style="position:fixed; top:-999px;"></div>
-    <div class="dynamic-bg"></div>
+    <div class="dynamic-bg" id="dynamicBg"></div>
     <script src="main.js"></script>
 </body>
 </html>

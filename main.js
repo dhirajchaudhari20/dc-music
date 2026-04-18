@@ -1,9 +1,11 @@
-// 1. BOOTSTRAP & GLOBALS
+// 1. GLOBAL BOOTSTRAP (Zero-Latency Core)
 window.closeWelcome = function() {
-    const overlay = document.getElementById('welcomeOverlay');
-    if (overlay) {
-        overlay.style.opacity = '0';
-        setTimeout(() => overlay.style.display = 'none', 500);
+    const ov = document.getElementById('welcomeOverlay');
+    if (ov) {
+        ov.style.transition = '0.6s cubic-bezier(0.165, 0.84, 0.44, 1)';
+        ov.style.opacity = '0';
+        ov.style.transform = 'scale(1.05)';
+        setTimeout(() => { ov.style.display = 'none'; renderHome(); }, 600);
     }
     localStorage.setItem('dc_music_welcomed', 'true');
 };
@@ -13,8 +15,12 @@ window.googleSignIn = async function() {
         const provider = new firebase.auth.GoogleAuthProvider();
         await firebase.auth().signInWithPopup(provider);
         window.closeWelcome();
-        location.reload();
     } catch (e) { console.error(e); }
+};
+
+window.toggleDrawer = function() {
+    const dr = document.getElementById('mobileDrawer');
+    if (dr) dr.classList.toggle('active');
 };
 
 // 2. STATE ENGINE
@@ -25,13 +31,14 @@ const state = {
     currentIndex: 0,
     user: null,
     library: [],
-    history: [] // Last 6 songs for the "Recent" grid
+    history: [],
+    view: 'home'
 };
 
 const $ = (id) => document.getElementById(id);
 const lucide_refresh = () => window.lucide && lucide.createIcons();
 
-// 3. FIREBASE
+// 3. FIREBASE & CLOUD SYNC
 const firebaseConfig = {
     apiKey: "AIzaSyCohKlqNu0I1sXcLW4D_fv-OEw9x0S50q8",
     authDomain: "dc-infotechpvt-1-d1a4b.firebaseapp.com",
@@ -59,11 +66,12 @@ if (typeof firebase !== 'undefined') {
     window.loadUserLibrary = function(database) {
         database.ref(`users/${state.user.uid}/library`).on('value', snap => {
             state.library = snap.val() ? Object.values(snap.val()) : [];
+            if(state.view === 'library') renderLibrary();
         });
     };
 }
 
-// 4. AUDIO ENGINE
+// 4. AUDIO & BASS ENGINE (WEB AUDIO API)
 let audioCtx, gainNode, bassFilter, nativeAudio = new Audio();
 nativeAudio.crossOrigin = "anonymous";
 
@@ -79,7 +87,7 @@ function initAudio() {
     }
 }
 
-function updateSound() {
+function updateSoundParams() {
     if (!audioCtx) return;
     const vol = $('volSlide').value / 100;
     const boost = $('bstSlide').value;
@@ -87,18 +95,16 @@ function updateSound() {
     gainNode.gain.value = vol * boost;
     bassFilter.gain.value = bass;
     if($('volLvl')) $('volLvl').textContent = Math.round(vol * boost * 100) + '% Boost';
-    if($('volFill')) $('volFill').style.width = $('volSlide').value + '%';
 }
 
-// 5. DATA ENGINE
+// 5. DATA FETCHING (ULTRA STABLE)
 const INSTANCES = ['https://invidious.poast.org', 'https://inv.vern.cc', 'https://yewtu.be'];
 
 async function searchYouTube(q) {
     if (!q) return [];
     for (let inst of INSTANCES) {
         try {
-            // Using direct fetch with timeout as per user's old main.js logic for stability
-            const res = await fetch(`${inst}/api/v1/search?q=${encodeURIComponent(q)}&type=video`, { signal: AbortSignal.timeout(4000) });
+            const res = await fetch(`${inst}/api/v1/search?q=${encodeURIComponent(q)}&type=video`, { signal: AbortSignal.timeout(4500) });
             const data = await res.json();
             if (data && data.length) {
                 return data.slice(0, 20).map(v => ({
@@ -111,7 +117,7 @@ async function searchYouTube(q) {
     return [];
 }
 
-// 6. PLAYBACK
+// 6. MULTI-SYNC PLAYBACK (Drawer + Shell + Strip)
 let ytPlayer;
 async function playTrack(track, fromPlaylist = []) {
     initAudio();
@@ -121,16 +127,9 @@ async function playTrack(track, fromPlaylist = []) {
         state.currentIndex = fromPlaylist.findIndex(t => t.id === track.id);
     }
 
-    if($('currentTitle')) $('currentTitle').textContent = track.name;
-    if($('currentArtist')) $('currentArtist').textContent = track.artist;
-    if($('currentArt')) $('currentArt').src = track.art;
-    updateDynamicBG(track.art);
-    
-    // Add to Recent History
-    if (!state.history.find(s => s.id === track.id)) {
-        state.history.unshift(track);
-        if (state.history.length > 6) state.history.pop();
-    }
+    // Sync All Surfaces
+    syncTrackInfo(track);
+    updateAppAccent(track.art);
 
     try {
         for(let inst of INSTANCES) {
@@ -142,7 +141,7 @@ async function playTrack(track, fromPlaylist = []) {
                 nativeAudio.src = fmt.url;
                 nativeAudio.play();
                 state.isPlaying = true;
-                updateSound(); 
+                updateSoundParams();
                 syncUI();
                 return;
             }
@@ -158,71 +157,16 @@ async function playTrack(track, fromPlaylist = []) {
     syncUI();
 }
 
-function syncUI() {
-    $('playPauseBtn').innerHTML = `<i data-lucide="${state.isPlaying ? 'pause' : 'play'}" style="fill:black"></i>`;
-    lucide_refresh();
+function syncTrackInfo(t) {
+    const ids = ['currentTitle', 'drawerTitle', 'mStripTitle'];
+    ids.forEach(id => { if($(id)) $(id).textContent = t.name; });
+    const aids = ['currentArtist', 'drawerArtist', 'mStripArtist'];
+    aids.forEach(id => { if($(id)) $(id).textContent = t.artist; });
+    const arts = ['currentArt', 'drawerArt', 'mStripArt'];
+    arts.forEach(id => { if($(id)) $(id).src = t.art; });
 }
 
-// 7. RENDERING (SPOTIFY STYLE)
-async function renderHome() {
-    const area = $('content-area');
-    area.innerHTML = `
-        <div class="section-title">Good afternoon</div>
-        <div class="recent-grid" id="recentGrid">
-            <div class="recent-card"><img src="https://i.ytimg.com/vi/4NRXx6U8ABQ/mqdefault.jpg"><span>Liked Songs</span></div>
-        </div>
-        <div class="section-title">Recommended for you</div>
-        <div class="grid-container" id="recommendGrid"></div>
-    `;
-    
-    // Render History
-    const recentGrid = $('recentGrid');
-    if (state.history.length) {
-        recentGrid.innerHTML = '';
-        state.history.forEach(s => {
-            const card = document.createElement('div');
-            card.className = 'recent-card';
-            card.onclick = () => playTrack(s, state.history);
-            card.innerHTML = `<img src="${s.art}"><span>${s.name}</span>`;
-            recentGrid.appendChild(card);
-        });
-    }
-
-    const tracks = await searchYouTube('Top Punjabi Sidhu Moose Wala');
-    const container = $('recommendGrid');
-    tracks.forEach(track => {
-        const card = document.createElement('div');
-        card.className = 'track-card';
-        card.onclick = () => playTrack(track, tracks);
-        card.innerHTML = `<div class="art-wrapper"><img src="${track.art}"></div><h3>${track.name}</h3><p>${track.artist}</p>`;
-        container.appendChild(card);
-    });
-}
-
-function updateDynamicBG(url) {
-    const img = new Image(); img.crossOrigin = "anonymous"; img.src = url;
-    img.onload = () => {
-        const c = document.createElement('canvas'); const ctx = c.getContext('2d');
-        c.width = 1; c.height = 1; ctx.drawImage(img, 0, 0, 1, 1);
-        const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-        const color = `rgb(${r},${g},${b})`;
-        $('dynamicBg').style.background = `linear-gradient(to bottom, ${color} 0%, transparent 60%)`;
-        document.documentElement.style.setProperty('--accent', color);
-    };
-}
-
-// 8. BOOTSTRAP
-window.onYouTubeIframeAPIReady = () => {
-    ytPlayer = new YT.Player('yt-hidden-player', {
-        playerVars: { 'autoplay': 0, 'controls': 0, 'origin': window.location.origin },
-        events: { 'onReady': () => { if(localStorage.getItem('dc_music_welcomed') === 'true') renderHome(); } }
-    });
-};
-
-const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api";
-document.head.appendChild(tag);
-
-$('playPauseBtn').onclick = () => {
+window.togglePlay = function() {
     if (nativeAudio.src && nativeAudio.src !== '') { state.isPlaying ? nativeAudio.pause() : nativeAudio.play(); }
     else if (ytPlayer) {
         const ps = ytPlayer.getPlayerState();
@@ -232,20 +176,130 @@ $('playPauseBtn').onclick = () => {
     syncUI();
 };
 
-if($('volSlide')) $('volSlide').oninput = updateSound;
+function syncUI() {
+    const playIcons = ['playPauseBtn', 'mStripPlay', 'dPlay'];
+    playIcons.forEach(pid => {
+        if($(pid)) $(pid).innerHTML = `<i data-lucide="${state.isPlaying ? 'pause' : 'play'}" ${pid === 'mStripPlay' ? 'fill="white"' : 'fill="black"'} size="${pid==='dPlay'?32:20}"></i>`;
+    });
+    lucide_refresh();
+}
 
+// 7. SPA VIEW TRANSITIONS
+function switchView(viewName, contentFn) {
+    const viewport = $('mainViewport');
+    viewport.style.opacity = '0';
+    viewport.style.transform = 'translateY(10px)';
+    state.view = viewName;
+    
+    setTimeout(async () => {
+        await contentFn();
+        viewport.style.opacity = '1';
+        viewport.style.transform = 'translateY(0)';
+        viewport.scrollTop = 0;
+    }, 300);
+}
+
+async function renderHome() {
+    state.history = state.history.length > 0 ? state.history : await searchYouTube('Top Punjabi Sidhu Moose Wala');
+    const area = $('content-area');
+    area.innerHTML = `
+        <div class="section-title">Good afternoon</div>
+        <div class="recent-grid" id="recRecent"></div>
+        <div class="section-title">Made For You</div>
+        <div class="grid-container" id="recGrid"></div>
+    `;
+    renderTracks(state.history.slice(0, 6), 'recRecent', true);
+    renderTracks(state.history.slice(6, 20), 'recGrid', false);
+}
+
+async function renderSearch() {
+    $('content-area').innerHTML = `
+        <div class="section-title">Search</div>
+        <div style="background:#1a1a1a; padding:15px; border-radius:10px; display:flex; gap:15px; margin-bottom:40px;">
+            <i data-lucide="search" color="#555"></i>
+            <input id="searchInput" placeholder="Artists, songs, or podcasts" style="background:none; border:none; outline:none; color:white; width:100%; font-weight:700;">
+        </div>
+        <div class="grid-container" id="searchGrid"></div>
+    `;
+    lucide_refresh();
+    $('searchInput').oninput = async (e) => {
+        if (e.target.value.length < 3) return;
+        const res = await searchYouTube(e.target.value);
+        renderTracks(res, 'searchGrid');
+    };
+}
+
+async function renderLibrary() {
+    $('content-area').innerHTML = `<div class="section-title">Your Library</div><div class="grid-container" id="libGrid"></div>`;
+    renderTracks(state.library, 'libGrid');
+}
+
+function renderTracks(tracks, containerId, isRecent = false) {
+    const container = $(containerId); if(!container) return;
+    container.innerHTML = '';
+    tracks.forEach(t => {
+        const card = document.createElement('div');
+        card.className = isRecent ? 'recent-item' : 'card';
+        card.onclick = () => playTrack(t, tracks);
+        card.innerHTML = isRecent ? 
+            `<img src="${t.art}"><span>${t.name}</span>` :
+            `<div class="card-art"><img src="${t.art}"></div><h3>${t.name}</h3><p>${t.artist}</p>`;
+        container.appendChild(card);
+    });
+}
+
+// 8. VISUAL EXCELLENCE (Dynamic Accent)
+function updateAppAccent(url) {
+    const img = new Image(); img.crossOrigin = "anonymous"; img.src = url;
+    img.onload = () => {
+        const c = document.createElement('canvas'); const ctx = c.getContext('2d');
+        c.width = 1; c.height = 1; ctx.drawImage(img, 0, 0, 1, 1);
+        const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+        const accent = `rgb(${r},${g},${b})`;
+        $('dynamicBg').style.background = `linear-gradient(to bottom, ${accent} 0%, transparent 70%)`;
+        document.documentElement.style.setProperty('--accent', accent);
+    };
+}
+
+// 9. EVENT REGISTRATION
+window.onYouTubeIframeAPIReady = () => {
+    ytPlayer = new YT.Player('yt-hidden-player', {
+        playerVars: { 'autoplay': 0, 'controls': 0, 'origin': window.location.origin },
+        events: { 'onReady': () => { if(localStorage.getItem('dc_music_welcomed') === 'true') renderHome(); } }
+    });
+};
+
+document.querySelectorAll('[data-view]').forEach(v => {
+    v.onclick = () => {
+        const view = v.getAttribute('data-view');
+        if (view === 'home') switchView('home', renderHome);
+        if (view === 'search') switchView('search', renderSearch);
+        if (view === 'library') switchView('library', renderLibrary);
+        document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+        v.classList.add('active');
+    };
+});
+
+// Sync Progress
 setInterval(() => {
     let cur = 0, dur = 0;
     if (nativeAudio.src && !nativeAudio.paused) { cur = nativeAudio.currentTime; dur = nativeAudio.duration; }
     else if (ytPlayer && ytPlayer.getCurrentTime) { cur = ytPlayer.getCurrentTime(); dur = ytPlayer.getDuration(); }
     if (dur && !isNaN(dur)) {
-        $('progBar').value = (cur / dur) * 100;
-        $('progFill').style.width = (cur / dur) * 100 + '%';
-        $('curTime').textContent = formatTime(cur);
-        $('durTime').textContent = formatTime(dur);
+        const p = (cur / dur) * 100;
+        ['progBar', 'dProgBar'].forEach(id => { if($(id)) $(id).value = p; });
+        ['progFill', 'dProgFill'].forEach(id => { if($(id)) $(id).style.width = p + '%'; });
+        ['curTime', 'dCurTime'].forEach(id => { if($(id)) $(id).textContent = formatTime(cur); });
+        ['durTime', 'dDurTime'].forEach(id => { if($(id)) $(id).textContent = formatTime(dur); });
     }
 }, 1000);
 
 function formatTime(s) { const m = Math.floor(s/60); const sc = Math.floor(s%60); return `${m}:${sc.toString().padStart(2, '0')}`; }
 lucide_refresh();
-if(localStorage.getItem('dc_music_welcomed') === 'true') renderHome();
+if(localStorage.getItem('dc_music_welcomed') === 'true') {
+    setTimeout(renderHome, 500);
+}
+
+$('playPauseBtn').onclick = window.togglePlay;
+$('dPlay').onclick = window.togglePlay;
+$('volSlide').oninput = updateSoundParams;

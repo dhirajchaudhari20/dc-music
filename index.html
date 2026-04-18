@@ -2,117 +2,164 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DC MUSIC - Spotify Experience</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>DC MUSIC - Premium App</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Dependencies for high-fidelity animations and cloud syncing -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 </head>
 <body>
-    <!-- Spotify Style Welcome Overlay -->
+    <!-- Premium App Shell -->
     <div id="welcomeOverlay" class="welcome-overlay">
         <div class="welcome-card">
-            <div class="nano-logo" style="width:80px; height:80px; font-size:32px; margin:0 auto 32px">DC</div>
-            <h1>Millions of songs.<br>Free on DC Music.</h1>
-            <button class="auth-btn google" onclick="googleSignIn()">LOG IN WITH GOOGLE</button>
-            <button class="auth-btn guest" onclick="closeWelcome()">CONTINUE AS GUEST</button>
+            <div class="nano-logo" style="width:70px; height:70px; font-size:28px; margin:0 auto 24px">DC</div>
+            <h1>Premium Sound.<br>Designed for You.</h1>
+            <div style="margin-top:40px;">
+                <button class="auth-btn google" onclick="googleSignIn()">SIGN IN WITH GOOGLE</button>
+                <button class="auth-btn guest" onclick="closeWelcome()">EXPLORE AS GUEST</button>
+            </div>
         </div>
     </div>
 
-    <div id="app" class="app-container">
-        <!-- Spotify Sidebar -->
+    <!-- Mobile Slider Drawer (iOS Style) -->
+    <div id="mobileDrawer" class="drawer-overlay">
+        <div class="drawer-header">
+            <button onclick="toggleDrawer()" style="background:none; border:none; color:white;"><i data-lucide="chevron-down"></i></button>
+            <span style="font-size:12px; font-weight:800; letter-spacing:1px;">NOW PLAYING</span>
+            <button style="background:none; border:none; color:white;"><i data-lucide="more-horizontal"></i></button>
+        </div>
+        <img id="drawerArt" class="drawer-art" src="https://i.ytimg.com/vi/4NRXx6U8ABQ/mqdefault.jpg">
+        <div class="drawer-info">
+            <h2 id="drawerTitle">Not Playing</h2>
+            <p id="drawerArtist">Select a track</p>
+        </div>
+        <div class="drawer-controls">
+            <div class="p-progress">
+                <span id="dCurTime">0:00</span>
+                <div class="p-progress-bar">
+                    <div id="dProgFill" class="p-progress-fill"></div>
+                    <input type="range" id="dProgBar" min="0" max="100" value="0">
+                </div>
+                <span id="dDurTime">0:00</span>
+            </div>
+            <div class="drawer-btns">
+                <button id="dPrev" style="background:none; border:none; color:white;"><i data-lucide="skip-back" size="40"></i></button>
+                <button id="dPlay" class="drawer-play"><i data-lucide="play" fill="black" size="32"></i></button>
+                <button id="dNext" style="background:none; border:none; color:white;"><i data-lucide="skip-forward" size="40"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-shell" id="appShell">
+        <!-- Persistent Desktop Sidebar -->
         <aside class="sidebar">
             <div class="logo">
                 <div class="nano-logo">DC</div>
                 <span>MUSIC</span>
             </div>
-            
             <nav class="nav-group">
                 <a href="#" class="nav-item active" data-view="home"><i data-lucide="home"></i> Home</a>
                 <a href="#" class="nav-item" data-view="search"><i data-lucide="search"></i> Search</a>
-                <a href="#" class="nav-item" data-view="library"><i data-lucide="library"></i> Your Library</a>
+                <a href="#" class="nav-item" data-view="library"><i data-lucide="library"></i> Library</a>
             </nav>
-
-            <nav class="nav-group">
-                <p>Playlists</p>
-                <a href="#" class="nav-item" id="createPlaylist"><i data-lucide="plus-square"></i> Create Playlist</a>
-                <a href="#" class="nav-item" id="likedSongs"><i data-lucide="heart" style="fill: #1DB954; color: #1DB954"></i> Liked Songs</a>
-                <a href="#" class="nav-item" id="automixBtn"><i data-lucide="zap"></i> AI Automix</a>
+            <nav class="nav-group" style="margin-top:20px;">
+                <p style="font-size:11px; font-weight:800; color:#555; margin-bottom:15px; letter-spacing:1px;">COLLECTIONS</p>
+                <a href="#" class="nav-item"><i data-lucide="heart"></i> Liked Songs</a>
+                <a href="#" class="nav-item" id="automixBtn"><i data-lucide="zap"></i> AI Mix</a>
             </nav>
-
-            <div style="margin-top: auto; padding-top: 20px;">
+            <div style="margin-top:auto; padding-top:20px; border-top:1px solid #1a1a1a;">
                 <div id="userProfile" style="display:flex; align-items:center; gap:12px;">
-                    <div style="width:28px; height:28px; background:#282828; border-radius:50%; display:flex; align-items:center; justify-content:center;">
-                        <i data-lucide="user" style="width:16px;"></i>
+                    <div style="width:32px; height:32px; background:#222; border-radius:50%; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                        <i data-lucide="user" style="width:18px;"></i>
                     </div>
-                    <span id="userName" style="font-size:13px; font-weight:700;">Guest User</span>
+                    <span id="userName" style="font-size:14px; font-weight:700;">Guest User</span>
                 </div>
             </div>
         </aside>
 
-        <!-- Main Content Area -->
-        <main class="main-content">
-            <section id="content-area">
-                <!-- Home Content gets rendered here -->
-            </section>
+        <!-- Dynamic Main Content Viewport -->
+        <main class="main-viewport" id="mainViewport">
+            <div id="content-area">
+                <!-- SKELETON LOADER (Initial) -->
+                <div class="section-title">Loading your music...</div>
+                <div class="recent-grid">
+                    <div class="recent-item skeleton" style="height:64px;"></div>
+                    <div class="recent-item skeleton" style="height:64px;"></div>
+                </div>
+                <div class="grid-container">
+                    <div class="card skeleton" style="aspect-ratio:1/1; height:200px;"></div>
+                    <div class="card skeleton" style="aspect-ratio:1/1; height:200px;"></div>
+                </div>
+            </div>
         </main>
 
-        <!-- Bottom Player Bar -->
+        <!-- Desktop Player Bar -->
         <footer class="player-bar">
-            <div class="now-playing">
+            <div class="p-now-playing">
                 <img id="currentArt" src="https://i.ytimg.com/vi/4NRXx6U8ABQ/mqdefault.jpg">
                 <div class="track-info">
-                    <h4 id="currentTitle">Not Playing</h4>
-                    <p id="currentArtist">Select a track</p>
+                    <h4 id="currentTitle" style="font-size:14px; font-weight:800;">Not Playing</h4>
+                    <p id="currentArtist" style="font-size:12px; color:#b3b3b3;">Choose a song</p>
                 </div>
-                <button id="likeBtn" style="background:none; border:none; margin-left:16px; cursor:pointer;"><i data-lucide="heart" style="width:18px; color:#b3b3b3"></i></button>
+                <button id="likeBtn" style="background:none; border:none; margin-left:15px;"><i data-lucide="heart" style="width:18px; color:#555;"></i></button>
             </div>
-
-            <div class="player-controls">
-                <div class="control-btns">
-                    <button class="icon-btn" style="background:none; border:none; cursor:pointer;"><i data-lucide="shuffle" style="width:16px; color:#b3b3b3"></i></button>
-                    <button id="prevBtn" class="icon-btn" style="background:none; border:none; cursor:pointer;"><i data-lucide="skip-back" style="width:20px; color:white"></i></button>
-                    <button class="play-btn" id="playPauseBtn"><i data-lucide="play" style="fill:black"></i></button>
-                    <button id="nextBtn" class="icon-btn" style="background:none; border:none; cursor:pointer;"><i data-lucide="skip-forward" style="width:20px; color:white"></i></button>
-                    <button class="icon-btn" style="background:none; border:none; cursor:pointer;"><i data-lucide="repeat" style="width:16px; color:#b3b3b3"></i></button>
+            <div class="p-controls">
+                <div class="p-btns">
+                    <button id="prevBtn" style="background:none; border:none;"><i data-lucide="skip-back" size="20" color="#fff"></i></button>
+                    <button id="playPauseBtn" class="p-btn-play"><i data-lucide="play" fill="black"></i></button>
+                    <button id="nextBtn" style="background:none; border:none;"><i data-lucide="skip-forward" size="20" color="#fff"></i></button>
                 </div>
-                <div class="prog-container">
+                <div class="p-progress">
                     <span id="curTime">0:00</span>
-                    <div class="prog-wrapper">
-                        <div id="progFill"></div>
+                    <div class="p-progress-bar">
+                        <div id="progFill" class="p-progress-fill"></div>
                         <input type="range" id="progBar" min="0" max="100" value="0">
                     </div>
                     <span id="durTime">0:00</span>
                 </div>
             </div>
-
             <div class="audio-engine">
-                <div class="gain-pill" id="volLvl">100% Boost</div>
-                <div class="vol-group">
-                    <i data-lucide="volume-2" style="width:16px; color:#b3b3b3"></i>
-                    <div class="prog-wrapper" style="width:80px;">
-                         <div id="volFill" style="background:white; height:100%; width:100%; border-radius:2px;"></div>
-                         <input type="range" id="volSlide" min="0" max="100" value="100" style="position:absolute; width:100%; height:100%; opacity:0; cursor:pointer; z-index:2;">
+                <div class="gain-pill" id="volLvl" style="font-size:10px; font-weight:800;">100% Boost</div>
+                <div style="display:flex; align-items:center; gap:10px; width:120px;">
+                    <i data-lucide="volume-2" style="width:16px; color:#555"></i>
+                    <div class="p-progress-bar" style="height:3px;">
+                        <input type="range" id="volSlide" min="0" max="100" value="100">
                     </div>
                 </div>
-                <!-- Controls hidden in menu usually, but accessible via main JS -->
+                <!-- Power User Boost (Hidden Controls accessed via Main JS) -->
                 <input type="range" id="bstSlide" min="1" max="15" value="1" style="display:none">
                 <input type="range" id="bssSlide" min="0" max="40" value="0" style="display:none">
             </div>
         </footer>
 
-        <!-- Mobile Spotify Nav -->
+        <!-- Mobile Strip Player (Tappable Drawer Trigger) -->
+        <div class="mobile-player-strip" onclick="toggleDrawer()">
+            <div style="display:flex; align-items:center; gap:12px; overflow:hidden; width:70%;">
+                <img id="mStripArt" src="https://i.ytimg.com/vi/4NRXx6U8ABQ/mqdefault.jpg" style="width:44px; height:44px; border-radius:4px;">
+                <div style="overflow:hidden;">
+                    <div id="mStripTitle" style="font-size:13px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Not Playing</div>
+                    <div id="mStripArtist" style="font-size:11px; color:var(--accent); font-weight:700;">Select track</div>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:20px;">
+                 <button id="mStripPlay" onclick="event.stopPropagation(); togglePlay();" style="background:none; border:none; color:white;"><i data-lucide="play" fill="white"></i></button>
+            </div>
+        </div>
+
+        <!-- Mobile Persistent Navigation -->
         <nav class="mobile-nav">
             <a href="#" class="nav-m-item active" data-view="home"><i data-lucide="home"></i><span>Home</span></a>
             <a href="#" class="nav-m-item" data-view="search"><i data-lucide="search"></i><span>Search</span></a>
-            <a href="#" class="nav-m-item" data-view="library"><i data-lucide="library"></i><span>Your Library</span></a>
-            <a href="#" class="nav-m-item" id="premiumBtn"><i data-lucide="zap"></i><span>Premium</span></a>
+            <a href="#" class="nav-m-item" data-view="library"><i data-lucide="library"></i><span>Library</span></a>
+            <a href="#" class="nav-m-item" id="premiumMenu"><i data-lucide="zap"></i><span>Premium</span></a>
         </nav>
     </div>
 
+    <!-- Background Elements -->
     <div id="yt-hidden-player" style="position:fixed; top:-999px;"></div>
     <div class="dynamic-bg" id="dynamicBg"></div>
     <script src="main.js"></script>

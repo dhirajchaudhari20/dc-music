@@ -8,17 +8,19 @@ let currentIndex = 0;
 const $ = (id) => document.getElementById(id);
 const lucide_refresh = () => window.lucide && lucide.createIcons();
 
-// PROXIES & INSTANCES
+// PROXIES & INSTANCES (EXPANDED CLUSTER)
 const PROXIES = [
-    'https://corsproxy.io/?',
     'https://api.allorigins.win/raw?url=',
-    'https://thingproxy.freeboard.io/fetch/'
+    'https://corsproxy.io/?',
+    'https://thingproxy.freeboard.io/fetch/',
+    'https://api.codetabs.com/v1/proxy?quest='
 ];
 const INSTANCES = [
     'https://invidious.poast.org',
     'https://inv.tux.digital',
     'https://invidious.no-logs.com',
-    'https://yewtu.be'
+    'https://yewtu.be',
+    'https://inv.river.group'
 ];
 
 async function fetchReliably(path) {
@@ -26,8 +28,11 @@ async function fetchReliably(path) {
         for (let inst of INSTANCES) {
             try {
                 const url = p + encodeURIComponent(inst + path);
-                const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-                if (res.ok) return await res.json();
+                const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data) return data;
+                }
             } catch(e) { continue; }
         }
     }
@@ -52,31 +57,43 @@ if (typeof firebase !== 'undefined') {
 
 // WELCOME
 function closeWelcome() {
-    $('welcomeOverlay').style.display = 'none';
+    if($('welcomeOverlay')) $('welcomeOverlay').style.display = 'none';
     localStorage.setItem('dc_welcomed', 'true');
 }
-if(localStorage.getItem('dc_welcomed') === 'true') $('welcomeOverlay').style.display = 'none';
+if(localStorage.getItem('dc_welcomed') === 'true') {
+    if($('welcomeOverlay')) $('welcomeOverlay').style.display = 'none';
+}
 
 async function googleSignIn() {
     try {
         await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
         closeWelcome();
+        location.reload();
     } catch(e) { console.error(e); }
 }
 
 if(typeof auth !== 'undefined') {
     auth.onAuthStateChanged(user => {
-        if(user && $('user-profile')) {
+        if(user && document.querySelector('.user-profile')) {
             document.querySelector('.user-profile').innerHTML = `<img src="${user.photoURL}" style="width:100%; height:100%; border-radius:50%">`;
+            closeWelcome();
         }
     });
 }
 
-// DATA
+// DATA & THUMBNAIL FIX
 const PROPER_LIBRARY = [
-    { id: '4NRXx6U8ABQ', name: 'Blinding Lights', artist: 'The Weeknd', art: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17' },
-    { id: 'v8PAtHlqD3w', name: 'The Last Ride', artist: 'Sidhu Moose Wala', art: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9' }
+    { id: '4NRXx6U8ABQ', name: 'Blinding Lights', artist: 'The Weeknd', art: 'https://i.ytimg.com/vi/4NRXx6U8ABQ/maxresdefault.jpg' },
+    { id: 'v8PAtHlqD3w', name: 'The Last Ride', artist: 'Sidhu Moose Wala', art: 'https://i.ytimg.com/vi/v8PAtHlqD3w/maxresdefault.jpg' },
+    { id: 'BBAyRbtle7c', name: 'Kesariya', artist: 'Arijit Singh', art: 'https://i.ytimg.com/vi/BBAyRbtle7c/maxresdefault.jpg' }
 ];
+
+function fixArtUrl(url, id) {
+    if (!url) return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+    if (url.startsWith('//')) return 'https:' + url;
+    if (url.startsWith('/')) return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+    return url;
+}
 
 async function searchYouTube(q) {
     if(!q) return [];
@@ -84,13 +101,14 @@ async function searchYouTube(q) {
     if(data && data.length) {
         return data.slice(0, 15).map(v => ({
             id: v.videoId, name: v.title, artist: v.author,
-            art: v.videoThumbnails ? v.videoThumbnails[2].url : 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17'
+            art: fixArtUrl(v.videoThumbnails ? v.videoThumbnails[2].url : '', v.videoId)
         }));
     }
+    console.warn("API empty, showing library.");
     return PROPER_LIBRARY;
 }
 
-// AUDIO
+// AUDIO ENGINE
 let ytPlayer;
 let nativeAudio = new Audio();
 nativeAudio.crossOrigin = "anonymous";
@@ -98,62 +116,77 @@ let audioCtx, gainNode, bassFilter;
 
 function initAudio() {
     if(!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        gainNode = audioCtx.createGain();
-        bassFilter = audioCtx.createBiquadFilter();
-        bassFilter.type = "lowshelf"; bassFilter.frequency.value = 200;
-        const src = audioCtx.createMediaElementSource(nativeAudio);
-        src.connect(bassFilter); bassFilter.connect(gainNode); gainNode.connect(audioCtx.destination);
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            gainNode = audioCtx.createGain();
+            bassFilter = audioCtx.createBiquadFilter();
+            bassFilter.type = "lowshelf"; bassFilter.frequency.value = 200;
+            const src = audioCtx.createMediaElementSource(nativeAudio);
+            src.connect(bassFilter); bassFilter.connect(gainNode); gainNode.connect(audioCtx.destination);
+        } catch(e) { console.error("Audio API error", e); }
     }
 }
 
 async function playTrack(track, fromPlaylist = []) {
     currentTrack = track;
     if(fromPlaylist.length) { playlist = fromPlaylist; currentIndex = playlist.findIndex(t => t.id === track.id); }
-    $('currentTitle').textContent = track.name;
-    $('currentArtist').textContent = track.artist;
-    $('currentArt').src = track.art;
+    if($('currentTitle')) $('currentTitle').textContent = track.name;
+    if($('currentArtist')) $('currentArtist').textContent = track.artist;
+    if($('currentArt')) $('currentArt').src = track.art;
     
     syncUI();
     const data = await fetchReliably(`/api/v1/videos/${track.id}`);
     if(data && data.adaptiveFormats) {
         const fmt = data.adaptiveFormats.find(f => f.type.includes('audio/webm') || f.type.includes('audio/mp4'));
-        if(fmt) {
+        if(fmt && fmt.url) {
             initAudio();
-            if(ytPlayer) ytPlayer.pauseVideo();
+            if(ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
             nativeAudio.src = fmt.url;
-            nativeAudio.play().catch(() => {});
+            nativeAudio.play().catch(e => {
+                console.warn("Native play blocked, using YT", e);
+                useYtFallback(track.id);
+            });
             isPlaying = true; syncUI(); return;
         }
     }
-    
-    if(ytPlayer) { nativeAudio.pause(); ytPlayer.loadVideoById(track.id); ytPlayer.playVideo(); isPlaying = true; }
-    syncUI();
+    useYtFallback(track.id);
+}
+
+function useYtFallback(id) {
+    if(ytPlayer && ytPlayer.loadVideoById) { 
+        nativeAudio.pause(); 
+        ytPlayer.loadVideoById(id); 
+        ytPlayer.playVideo(); 
+        isPlaying = true; 
+        syncUI(); 
+    }
 }
 
 function syncUI() {
     const icon = document.querySelector('.play-btn i');
     if(icon) icon.setAttribute('data-lucide', isPlaying ? 'pause' : 'play');
     lucide_refresh();
-    const art = $('currentArt');
-    if(art) isPlaying ? art.classList.add('playing') : art.classList.remove('playing');
 }
 
 function togglePlay() {
-    if(nativeAudio.src && nativeAudio.src !== '') { isPlaying ? nativeAudio.pause() : nativeAudio.play(); }
-    else if(ytPlayer) { isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo(); }
+    if(nativeAudio.src && nativeAudio.src !== '' && !nativeAudio.error) { 
+        isPlaying ? nativeAudio.pause() : nativeAudio.play().catch(()=>{}); 
+    } else if (ytPlayer) {
+        isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+    }
     isPlaying = !isPlaying; syncUI();
 }
 
 // VIEWS
 async function renderHome() {
-    $('content-area').innerHTML = `<div class="section-header"><h1>Listen Now</h1></div><div id="hits" class="grid-container"></div>`;
+    if($('content-area')) $('content-area').innerHTML = `<div class="section-header"><h1>Listen Now</h1></div><div id="hits" class="grid-container"></div>`;
     const hits = await searchYouTube('Top global hits 2026');
     renderGrid(hits, 'hits');
 }
 
 function renderGrid(tracks, containerId) {
     const container = $(containerId); if(!container) return;
+    container.innerHTML = '';
     tracks.forEach(t => {
         const card = document.createElement('div'); card.className = 'track-card';
         card.onclick = () => playTrack(t, tracks);
@@ -163,21 +196,22 @@ function renderGrid(tracks, containerId) {
 }
 
 function renderSearch() {
-    $('content-area').innerHTML = `
-        <div class="section-header"><h1>Search</h1></div>
-        <div style="background:#1c1c1e; padding:15px; border-radius:15px; display:flex; gap:10px; margin-bottom:30px;">
-            <i data-lucide="search" style="color:#8e8e93"></i>
-            <input id="mainSearch" placeholder="Artists, Songs, Lyrics" style="background:none; border:none; outline:none; color:white; width:100%; font-size:16px;">
-        </div>
-        <div id="searchRes" class="grid-container"></div>
-    `;
-    lucide_refresh();
-    $('mainSearch').oninput = async (e) => {
-        if(e.target.value.length < 3) return;
-        const res = await searchYouTube(e.target.value);
-        $('searchRes').innerHTML = '';
-        renderGrid(res, 'searchRes');
-    };
+    if($('content-area')) {
+        $('content-area').innerHTML = `
+            <div class="section-header"><h1>Search</h1></div>
+            <div style="background:#1c1c1e; padding:15px; border-radius:15px; display:flex; gap:10px; margin-bottom:30px;">
+                <i data-lucide="search" style="color:#8e8e93"></i>
+                <input id="mainSearch" placeholder="Artists, Songs, Lyrics" style="background:none; border:none; outline:none; color:white; width:100%; font-size:16px;">
+            </div>
+            <div id="searchRes" class="grid-container"></div>
+        `;
+        lucide_refresh();
+        $('mainSearch').oninput = async (e) => {
+            if(e.target.value.length < 3) return;
+            const res = await searchYouTube(e.target.value);
+            renderGrid(res, 'searchRes');
+        };
+    }
 }
 
 // INIT

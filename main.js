@@ -8,35 +8,39 @@ let currentIndex = 0;
 const $ = (id) => document.getElementById(id);
 const lucide_refresh = () => window.lucide && lucide.createIcons();
 
-// PROXIES & INSTANCES (EXPANDED CLUSTER)
-const PROXIES = [
-    'https://api.allorigins.win/raw?url=',
-    'https://corsproxy.io/?',
-    'https://thingproxy.freeboard.io/fetch/',
-    'https://api.codetabs.com/v1/proxy?quest='
-];
-const INSTANCES = [
-    'https://invidious.poast.org',
-    'https://inv.tux.digital',
-    'https://invidious.no-logs.com',
-    'https://yewtu.be',
-    'https://inv.river.group'
-];
-
-async function fetchReliably(path) {
-    for (let p of PROXIES) {
-        for (let inst of INSTANCES) {
-            try {
-                const url = p + encodeURIComponent(inst + path);
-                const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data) return data;
-                }
-            } catch(e) { continue; }
-        }
+// SEARCH (YOUTUBE DIRECT METHOD - ROBUST)
+async function searchYouTube(q) {
+    if(!q) return [];
+    
+    // We'll use a high-reliability YouTube metadata proxy
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=' + q)}`;
+    
+    try {
+        const res = await fetch(proxyUrl);
+        const data = await res.json();
+        const suggestions = data[1] || [];
+        
+        // If we have suggestions, we'll fetch the top 10 videos by scraping a search proxy
+        // This is the "YouTube way" that doesn't rely on Invidious instances
+        const searchUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.youtube.com/results?search_query=' + q)}`;
+        const searchRes = await fetch(searchUrl);
+        const html = await searchRes.text();
+        
+        // Extract Video IDs and Titles using regex (Very stable method)
+        const videoIds = [...html.matchAll(/\/watch\?v=([a-zA-Z0-9_-]{11})/g)].map(m => m[1]);
+        const titles = [...html.matchAll(/"title":\{"runs":\[\{"text":"(.*?)"\}\]/g)].map(m => m[1]);
+        
+        const uniqueIds = [...new Set(videoIds)].slice(0, 15);
+        return uniqueIds.map((id, index) => ({
+            id: id,
+            name: titles[index] || q,
+            artist: "YouTube",
+            art: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
+        }));
+    } catch (e) {
+        console.warn("Search failed, using library fallback", e);
+        return PROPER_LIBRARY;
     }
-    return null;
 }
 
 // FIREBASE
@@ -81,51 +85,15 @@ if(typeof auth !== 'undefined') {
     });
 }
 
-// DATA & THUMBNAIL FIX
+// LIBRARY
 const PROPER_LIBRARY = [
-    { id: '4NRXx6U8ABQ', name: 'Blinding Lights', artist: 'The Weeknd', art: 'https://i.ytimg.com/vi/4NRXx6U8ABQ/maxresdefault.jpg' },
-    { id: 'v8PAtHlqD3w', name: 'The Last Ride', artist: 'Sidhu Moose Wala', art: 'https://i.ytimg.com/vi/v8PAtHlqD3w/maxresdefault.jpg' },
-    { id: 'BBAyRbtle7c', name: 'Kesariya', artist: 'Arijit Singh', art: 'https://i.ytimg.com/vi/BBAyRbtle7c/maxresdefault.jpg' }
+    { id: '4NRXx6U8ABQ', name: 'Blinding Lights', artist: 'The Weeknd', art: 'https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg' },
+    { id: 'v8PAtHlqD3w', name: 'The Last Ride', artist: 'Sidhu Moose Wala', art: 'https://i.ytimg.com/vi/v8PAtHlqD3w/hqdefault.jpg' },
+    { id: 'BBAyRbtle7c', name: 'Kesariya', artist: 'Arijit Singh', art: 'https://i.ytimg.com/vi/BBAyRbtle7c/hqdefault.jpg' }
 ];
 
-function fixArtUrl(url, id) {
-    if (!url) return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
-    if (url.startsWith('//')) return 'https:' + url;
-    if (url.startsWith('/')) return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
-    return url;
-}
-
-async function searchYouTube(q) {
-    if(!q) return [];
-    const data = await fetchReliably(`/api/v1/search?q=${encodeURIComponent(q)}&type=video`);
-    if(data && data.length) {
-        return data.slice(0, 15).map(v => ({
-            id: v.videoId, name: v.title, artist: v.author,
-            art: fixArtUrl(v.videoThumbnails ? v.videoThumbnails[2].url : '', v.videoId)
-        }));
-    }
-    console.warn("API empty, showing library.");
-    return PROPER_LIBRARY;
-}
-
-// AUDIO ENGINE
+// AUDIO ENGINE (100% YOUTUBE DIRECT)
 let ytPlayer;
-let nativeAudio = new Audio();
-nativeAudio.crossOrigin = "anonymous";
-let audioCtx, gainNode, bassFilter;
-
-function initAudio() {
-    if(!audioCtx) {
-        try {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            gainNode = audioCtx.createGain();
-            bassFilter = audioCtx.createBiquadFilter();
-            bassFilter.type = "lowshelf"; bassFilter.frequency.value = 200;
-            const src = audioCtx.createMediaElementSource(nativeAudio);
-            src.connect(bassFilter); bassFilter.connect(gainNode); gainNode.connect(audioCtx.destination);
-        } catch(e) { console.error("Audio API error", e); }
-    }
-}
 
 async function playTrack(track, fromPlaylist = []) {
     currentTrack = track;
@@ -134,31 +102,11 @@ async function playTrack(track, fromPlaylist = []) {
     if($('currentArtist')) $('currentArtist').textContent = track.artist;
     if($('currentArt')) $('currentArt').src = track.art;
     
-    syncUI();
-    const data = await fetchReliably(`/api/v1/videos/${track.id}`);
-    if(data && data.adaptiveFormats) {
-        const fmt = data.adaptiveFormats.find(f => f.type.includes('audio/webm') || f.type.includes('audio/mp4'));
-        if(fmt && fmt.url) {
-            initAudio();
-            if(ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
-            nativeAudio.src = fmt.url;
-            nativeAudio.play().catch(e => {
-                console.warn("Native play blocked, using YT", e);
-                useYtFallback(track.id);
-            });
-            isPlaying = true; syncUI(); return;
-        }
-    }
-    useYtFallback(track.id);
-}
-
-function useYtFallback(id) {
-    if(ytPlayer && ytPlayer.loadVideoById) { 
-        nativeAudio.pause(); 
-        ytPlayer.loadVideoById(id); 
-        ytPlayer.playVideo(); 
-        isPlaying = true; 
-        syncUI(); 
+    if(ytPlayer && ytPlayer.loadVideoById) {
+        ytPlayer.loadVideoById(track.id);
+        ytPlayer.playVideo();
+        isPlaying = true;
+        syncUI();
     }
 }
 
@@ -166,21 +114,24 @@ function syncUI() {
     const icon = document.querySelector('.play-btn i');
     if(icon) icon.setAttribute('data-lucide', isPlaying ? 'pause' : 'play');
     lucide_refresh();
+    const art = $('currentArt');
+    if(art) isPlaying ? art.classList.add('playing') : art.classList.remove('playing');
 }
 
 function togglePlay() {
-    if(nativeAudio.src && nativeAudio.src !== '' && !nativeAudio.error) { 
-        isPlaying ? nativeAudio.pause() : nativeAudio.play().catch(()=>{}); 
-    } else if (ytPlayer) {
-        isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+    if (ytPlayer && ytPlayer.getPlayerState) {
+        const state = ytPlayer.getPlayerState();
+        if (state === 1) ytPlayer.pauseVideo();
+        else ytPlayer.playVideo();
+        isPlaying = (state !== 1);
     }
-    isPlaying = !isPlaying; syncUI();
+    syncUI();
 }
 
 // VIEWS
 async function renderHome() {
     if($('content-area')) $('content-area').innerHTML = `<div class="section-header"><h1>Listen Now</h1></div><div id="hits" class="grid-container"></div>`;
-    const hits = await searchYouTube('Top global hits 2026');
+    const hits = await searchYouTube('Sidhu Moose Wala New');
     renderGrid(hits, 'hits');
 }
 
@@ -216,8 +167,21 @@ function renderSearch() {
 
 // INIT
 window.onYouTubeIframeAPIReady = () => {
-    ytPlayer = new YT.Player('yt-hidden-player', { height: '0', width: '0', events: { onReady: renderHome } });
+    ytPlayer = new YT.Player('yt-hidden-player', {
+        height: '0', width: '0',
+        playerVars: { 'autoplay': 0, 'controls': 0, 'origin': window.location.origin },
+        events: {
+            'onReady': () => { renderHome(); },
+            'onStateChange': (e) => {
+                if(e.data === 0) skipNext();
+                if(e.data === 1) isPlaying = true;
+                if(e.data === 2) isPlaying = false;
+                syncUI();
+            }
+        }
+    });
 };
+
 const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api";
 document.head.appendChild(tag);
 
@@ -235,20 +199,17 @@ if($('playPauseBtn')) $('playPauseBtn').onclick = togglePlay;
 if($('volSlide')) $('volSlide').oninput = (e) => {
     const v = e.target.value;
     if($('volLvl')) $('volLvl').textContent = v + '%';
-    if(nativeAudio) nativeAudio.volume = v / 100;
     if(ytPlayer) ytPlayer.setVolume(v);
 };
-if($('bssSlide')) $('bssSlide').oninput=(e)=>{ if(bassFilter) bassFilter.gain.value=e.target.value; };
-if($('bstSlide')) $('bstSlide').oninput=(e)=>{ if(gainNode) gainNode.gain.value=e.target.value*($('volSlide').value/100); };
-
 setInterval(() => {
-    let curr = 0, dur = 0;
-    if(nativeAudio.src && !nativeAudio.paused) { curr = nativeAudio.currentTime; dur = nativeAudio.duration; }
-    else if(ytPlayer && ytPlayer.getCurrentTime) { curr = ytPlayer.getCurrentTime(); dur = ytPlayer.getDuration(); }
-    if(dur && !isNaN(dur)) {
-        if($('progBar')) $('progBar').value = (curr / dur) * 100;
-        if($('curTime')) $('curTime').textContent = formatTime(curr);
-        if($('durTime')) $('durTime').textContent = formatTime(dur);
+    if(ytPlayer && ytPlayer.getCurrentTime) {
+        const curr = ytPlayer.getCurrentTime();
+        const dur = ytPlayer.getDuration();
+        if(dur) {
+            if($('progBar')) $('progBar').value = (curr / dur) * 100;
+            if($('curTime')) $('curTime').textContent = formatTime(curr);
+            if($('durTime')) $('durTime').textContent = formatTime(dur);
+        }
     }
 }, 1000);
 

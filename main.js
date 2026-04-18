@@ -1,19 +1,17 @@
 // ELEMENTS
 const playPauseBtn = document.getElementById('playPauseBtn');
-const playIcon = document.getElementById('playIcon');
-const progressBar = document.getElementById('progBar'); // Fixed ID
-const volumeSlider = document.getElementById('volSlide'); // Fixed ID
-const extraVolumeControl = document.getElementById('bstSlide'); // Fixed ID
-const bassControl = document.getElementById('bssSlide'); // Fixed ID
-const startTimeText = document.getElementById('curTime'); // Fixed ID
-const endTimeText = document.getElementById('durTime'); // Fixed ID
-const currentTrackTitle = document.getElementById('currentTitle'); // Fixed ID
-const currentTrackArtist = document.getElementById('currentArtist'); // Fixed ID
-const currentAlbumArt = document.getElementById('currentArt'); // Fixed ID
+const playIcon = document.querySelector('.play-btn i');
+const progressBar = document.getElementById('progBar');
+const volumeSlider = document.getElementById('volSlide');
+const extraVolumeControl = document.getElementById('bstSlide');
+const bassControl = document.getElementById('bssSlide');
+const startTimeText = document.getElementById('curTime');
+const endTimeText = document.getElementById('durTime');
+const currentTrackTitle = document.getElementById('currentTitle');
+const currentTrackArtist = document.getElementById('currentArtist');
+const currentAlbumArt = document.getElementById('currentArt');
 const contentArea = document.getElementById('content-area');
 const dynamicBg = document.querySelector('.dynamic-bg');
-const userProfile = document.querySelector('.user-profile');
-const welcomeOverlay = document.getElementById('welcomeOverlay');
 
 // APP STATE
 let isPlaying = false;
@@ -21,69 +19,42 @@ let currentTrack = null;
 let playlist = [];
 let currentIndex = 0;
 
-// FIREBASE
-const firebaseConfig = {
-    apiKey: "AIzaSyCohKlqNu0I1sXcLW4D_fv-OEw9x0S50q8",
-    authDomain: "dc-infotechpvt-1-d1a4b.firebaseapp.com",
-    databaseURL: "https://dc-infotechpvt-1-d1a4b-default-rtdb.firebaseio.com",
-    projectId: "dc-infotechpvt-1-d1a4b",
-    storageBucket: "dc-infotechpvt-1-d1a4b.firebasestorage.app",
-    messagingSenderId: "330752838328",
-    appId: "1:330752838328:web:1fe0ca04953934d4638703"
-};
-if (typeof firebase !== 'undefined') {
-    firebase.initializeApp(firebaseConfig);
-    var db = firebase.database();
-    var auth = firebase.auth();
-}
-
-// WELCOME
-function closeWelcome() {
-    if(welcomeOverlay) welcomeOverlay.style.display = 'none';
-    localStorage.setItem('dc_welcomed', 'true');
-}
-if(localStorage.getItem('dc_welcomed') === 'true') {
-    if(welcomeOverlay) welcomeOverlay.style.display = 'none';
-}
-async function googleSignIn() {
-    try {
-        await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-        closeWelcome();
-        location.reload();
-    } catch(e) { console.error(e); }
-}
-if(typeof auth !== 'undefined') {
-    auth.onAuthStateChanged(user => {
-        if(user && userProfile) {
-            userProfile.innerHTML = `<img src="${user.photoURL}" style="width:100%; height:100%; border-radius:50%">`;
-            closeWelcome();
-        }
-    });
-}
-
-// WEB AUDIO API
+// SOUND SYSTEM (ULTRA LOUD MODE)
 let audioCtx, gainNode, bassFilter, nativeAudio = new Audio();
 nativeAudio.crossOrigin = "anonymous";
+
 function initAudioContext() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         gainNode = audioCtx.createGain();
         bassFilter = audioCtx.createBiquadFilter();
         bassFilter.type = "lowshelf";
-        bassFilter.frequency.value = 200;
+        bassFilter.frequency.value = 150; // Lower freq for punchier bass
         const src = audioCtx.createMediaElementSource(nativeAudio);
-        src.connect(bassFilter); bassFilter.connect(gainNode); gainNode.connect(audioCtx.destination);
+        src.connect(bassFilter); 
+        bassFilter.connect(gainNode); 
+        gainNode.connect(audioCtx.destination);
     }
 }
 
-// PROPER LIBRARY (Verified IDs)
-const PROPER_LIBRARY = [
-    { id: '4NRXx6U8ABQ', name: 'Blinding Lights', artist: 'The Weeknd', art: 'https://i.ytimg.com/vi/4NRXx6U8ABQ/mqdefault.jpg' },
-    { id: 'jgW4as808No', name: 'Stay', artist: 'The Kid LAROI & Justin Bieber', art: 'https://i.ytimg.com/vi/jgW4as808No/mqdefault.jpg' },
-    { id: 'BBAyRbtle7c', name: 'Kesariya', artist: 'Arijit Singh', art: 'https://i.ytimg.com/vi/BBAyRbtle7c/mqdefault.jpg' },
-    { id: 'v8PAtHlqD3w', name: 'The Last Ride', artist: 'Sidhu Moose Wala', art: 'https://i.ytimg.com/vi/v8PAtHlqD3w/mqdefault.jpg' },
-    { id: 'ssN-C6XNnNM', name: 'Levels', artist: 'Sidhu Moose Wala', art: 'https://i.ytimg.com/vi/ssN-C6XNnNM/mqdefault.jpg' }
-];
+function updateSoundEngine() {
+    if (!audioCtx) return;
+    const vol = parseInt(volumeSlider.value) / 100;
+    const boost = parseFloat(extraVolumeControl.value); // Up to 15x
+    const bass = parseFloat(bassControl.value); // Up to 40dB
+
+    gainNode.gain.value = vol * boost;
+    bassFilter.gain.value = bass;
+    if(document.getElementById('volLvl')) document.getElementById('volLvl').textContent = Math.round(vol * boost * 100) + '%';
+}
+
+[volumeSlider, extraVolumeControl, bassControl].forEach(el => {
+    el?.addEventListener('input', () => {
+        initAudioContext();
+        updateSoundEngine();
+        if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(volumeSlider.value);
+    });
+});
 
 // YOUTUBE ENGINE
 let ytPlayer;
@@ -102,16 +73,16 @@ window.onYouTubeIframeAPIReady = () => {
     });
 };
 
-// DIRECT API SEARCH (No CORS Proxy where possible)
+// SEARCH & DATA
+const PROPER_LIBRARY = [
+    { id: '4NRXx6U8ABQ', name: 'Blinding Lights', artist: 'The Weeknd', art: 'https://i.ytimg.com/vi/4NRXx6U8ABQ/mqdefault.jpg' },
+    { id: 'v8PAtHlqD3w', name: 'The Last Ride', artist: 'Sidhu Moose Wala', art: 'https://i.ytimg.com/vi/v8PAtHlqD3w/mqdefault.jpg' },
+    { id: 'ssN-C6XNnNM', name: 'Levels', artist: 'Sidhu Moose Wala', art: 'https://i.ytimg.com/vi/ssN-C6XNnNM/mqdefault.jpg' }
+];
+
 async function searchYouTube(q) {
     if(!q) return [];
-    // Verified Invidious instances with CORS enabled
-    const instances = [
-        'https://invidious.flokinet.to',
-        'https://invidious.darkness.services',
-        'https://inv.vern.cc',
-        'https://invidious.poast.org'
-    ];
+    const instances = ['https://invidious.flokinet.to', 'https://invidious.poast.org', 'https://inv.vern.cc'];
     for (const inst of instances) {
         try {
             const res = await fetch(`${inst}/api/v1/search?q=${encodeURIComponent(q)}&type=video`, { signal: AbortSignal.timeout(4000) });
@@ -133,12 +104,11 @@ async function playTrack(track, fromPlaylist = []) {
     currentTrackTitle.textContent = track.name;
     currentTrackArtist.textContent = track.artist;
     currentAlbumArt.src = track.art;
-    updateDynamicBackground(track.art);
 
-    // Try Direct Audio for Super Boost
-    const instances = ['https://invidious.flokinet.to', 'https://invidious.darkness.services', 'https://inv.vern.cc'];
+    // TRY DIRECT STREAM FOR ULTRA LOUD BOOST
+    const streamInstances = ['https://invidious.flokinet.to', 'https://inv.vern.cc'];
     let streamUrl = null;
-    for (const inst of instances) {
+    for (const inst of streamInstances) {
         try {
             const res = await fetch(`${inst}/api/v1/videos/${track.id}`, { signal: AbortSignal.timeout(3000) });
             const data = await res.json();
@@ -154,6 +124,7 @@ async function playTrack(track, fromPlaylist = []) {
         nativeAudio.play().catch(()=>{});
         nativeAudio.onended = skipNext;
         isPlaying = true;
+        updateSoundEngine();
     } else if (ytPlayer && ytPlayer.loadVideoById) {
         nativeAudio.pause();
         ytPlayer.loadVideoById(track.id);
@@ -165,39 +136,25 @@ async function playTrack(track, fromPlaylist = []) {
 
 function togglePlay() {
     if (nativeAudio.src && nativeAudio.src !== '') { isPlaying ? nativeAudio.pause() : nativeAudio.play().catch(()=>{}); }
-    else if (ytPlayer) { isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo(); }
+    else if (ytPlayer) { 
+        const state = ytPlayer.getPlayerState();
+        state === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+    }
     isPlaying = !isPlaying; updateUISync();
 }
 function skipNext() { if (playlist.length) { currentIndex = (currentIndex + 1) % playlist.length; playTrack(playlist[currentIndex]); } }
 function skipPrev() { if (playlist.length) { currentIndex = (currentIndex - 1 + playlist.length) % playlist.length; playTrack(playlist[currentIndex]); } }
 
 function updateUISync() {
-    playIcon.setAttribute('data-lucide', isPlaying ? 'pause' : 'play');
+    const icon = document.querySelector('.play-btn i');
+    if(icon) icon.setAttribute('data-lucide', isPlaying ? 'pause' : 'play');
     if (window.lucide) lucide.createIcons();
     isPlaying ? currentAlbumArt.classList.add('playing') : currentAlbumArt.classList.remove('playing');
 }
 
-function updateBoosts() {
-    if (!audioCtx) return;
-    const vol = parseInt(volumeSlider.value);
-    const extraVol = parseFloat(extraVolumeControl.value);
-    const bass = parseFloat(bassControl.value);
-    
-    if($('volLvl')) $('volLvl').textContent = vol + '%';
-    gainNode.gain.value = extraVol * (vol / 100);
-    bassFilter.gain.value = bass;
-}
-
-[volumeSlider, extraVolumeControl, bassControl].forEach(el => {
-    el?.addEventListener('input', () => {
-        updateBoosts();
-        if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(volumeSlider.value);
-    });
-});
-
 async function renderHome() {
     contentArea.innerHTML = `<div class="section-header"><h1>Listen Now</h1></div><div id="hitsGrid" class="grid-container"></div>`;
-    const hits = await searchYouTube('Top Punjabi Sidhu Moose Wala');
+    const hits = await searchYouTube('Sidhu Moose Wala Hits');
     renderTracks(hits, 'hitsGrid', hits);
 }
 
@@ -207,7 +164,7 @@ function renderTracks(tracks, containerId, contextPlaylist = []) {
     tracks.forEach(track => {
         const card = document.createElement('div'); card.className = 'track-card';
         card.onclick = () => playTrack(track, contextPlaylist);
-        card.innerHTML = `<div class="art-wrapper"><img src="${track.art}"></div><div class="track-info"><h3>${track.name}</h3><p>${track.artist}</p></div>`;
+        card.innerHTML = `<div class="art-wrapper"><img src="${track.art}"></div><h3>${track.name}</h3><p>${track.artist}</p>`;
         container.appendChild(card);
     });
 }
@@ -252,16 +209,7 @@ if(progressBar) {
 }
 
 function formatTime(s) { const m = Math.floor(s/60); const sc = Math.floor(s%60); return `${m}:${sc.toString().padStart(2, '0')}`; }
+const $ = (id) => document.getElementById(id);
 if($('playPauseBtn')) $('playPauseBtn').onclick = togglePlay;
 if($('nextBtn')) $('nextBtn').onclick = skipNext;
 if($('prevBtn')) $('prevBtn').onclick = skipPrev;
-
-function updateDynamicBackground(url) {
-    const img = new Image(); img.crossOrigin = "anonymous"; img.src = url;
-    img.onload = () => {
-        const c = document.createElement('canvas'); const ctx = c.getContext('2d');
-        c.width = 1; c.height = 1; ctx.drawImage(img, 0, 0, 1, 1);
-        const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-        dynamicBg.style.background = `radial-gradient(circle at 50% -20%, rgb(${r},${g},${b}) 0%, #000 100%)`;
-    };
-}

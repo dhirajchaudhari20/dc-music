@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DC MUSIC - Premium Sound</title>
+    <meta name="description" content="DC MUSIC - Premium high-bass music player with YouTube integration.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div id="app" class="app-container">
+        <!-- Sidebar (Desktop only) -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="nano-logo">DC</div>
+                <span>MUSIC</span>
+            </div>
+            
+            <div class="search-box">
+                <i data-lucide="search"></i>
+                <input type="text" id="searchInput" placeholder="Search">
+            </div>
+
+            <nav class="nav-links">
+                <div class="nav-section">
+                    <a href="#" class="nav-item active" data-view="listen now"><i data-lucide="play-circle"></i> Listen Now</a>
+                    <a href="#" class="nav-item" data-view="browse"><i data-lucide="layout-grid"></i> Browse</a>
+                    <a href="#" class="nav-item" data-view="radio"><i data-lucide="radio"></i> Radio</a>
+                </div>
+
+                <div class="nav-section">
+                    <h3>Library</h3>
+                    <a href="#" class="nav-item" data-view="recently added"><i data-lucide="clock"></i> Recently Added</a>
+                    <a href="#" class="nav-item" data-view="artists"><i data-lucide="mic-2"></i> Artists</a>
+                    <a href="#" class="nav-item" data-view="albums"><i data-lucide="disc"></i> Albums</a>
+                    <a href="#" class="nav-item" data-view="songs"><i data-lucide="music-2"></i> Songs</a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="mobile-search-trigger md-hidden">
+                    <i data-lucide="search"></i>
+                </div>
+                <div class="user-profile">
+                    <i data-lucide="user"></i>
+                </div>
+            </header>
+
+            <section id="content-area">
+                <!-- Content will be injected by main.js -->
+            </section>
+        </main>
+
+        <!-- Mobile Bottom Nav -->
+        <nav class="mobile-nav">
+            <a href="#" class="mobile-nav-item active" data-view="listen now">
+                <i data-lucide="play-circle"></i>
+                <span>Listen Now</span>
+            </a>
+            <a href="#" class="mobile-nav-item" data-view="browse">
+                <i data-lucide="layout-grid"></i>
+                <span>Browse</span>
+            </a>
+            <a href="#" class="mobile-nav-item" data-view="radio">
+                <i data-lucide="radio"></i>
+                <span>Radio</span>
+            </a>
+            <a href="#" class="mobile-nav-item" data-view="search-mobile">
+                <i data-lucide="search"></i>
+                <span>Search</span>
+            </a>
+        </nav>
+
+        <!-- Player Bar -->
+        <footer class="player-bar">
+            <div class="mobile-progress">
+                <div id="mobileProgressFill"></div>
+            </div>
+
+            <div class="now-playing">
+                <img id="currentAlbumArt" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300" alt="Art">
+                <div class="track-info">
+                    <div id="currentTrackTitle" class="track-title">Not Playing</div>
+                    <div id="currentTrackArtist" class="track-artist">Select a song</div>
+                </div>
+            </div>
+
+            <div class="player-controls">
+                <div class="control-buttons">
+                    <button class="icon-btn shuffle-btn desktop-only"><i data-lucide="shuffle"></i></button>
+                    <button class="icon-btn" id="prevBtn"><i data-lucide="skip-back"></i></button>
+                    <button class="icon-btn play-pause-btn" id="playPauseBtn">
+                        <i data-lucide="play" id="playIcon"></i>
+                    </button>
+                    <button class="icon-btn" id="nextBtn"><i data-lucide="skip-forward"></i></button>
+                    <button class="icon-btn repeat-btn desktop-only"><i data-lucide="repeat"></i></button>
+                </div>
+                <div class="progress-bar-container desktop-only">
+                    <span class="time start-time">0:00</span>
+                    <div class="progress-bar-wrapper">
+                        <input type="range" id="progressBar" min="0" max="100" value="0">
+                    </div>
+                    <span class="time end-time">0:00</span>
+                </div>
+            </div>
+
+            <div class="volume-controls desktop-only">
+                <button class="icon-btn" id="volumeLow" title="Decrease Volume"><i data-lucide="volume-1"></i></button>
+                <input type="range" id="volumeSlider" min="0" max="100" value="100" title="System Volume">
+                <button class="icon-btn" id="volumeHigh" title="Increase Volume"><i data-lucide="volume-2"></i></button>
+                <div class="audio-boost-panel">
+                    <div class="boost-control">
+                        <label for="extraVolumeControl">Extra Vol</label>
+                        <input type="range" id="extraVolumeControl" min="1" max="5" step="0.5" value="1" title="Boost beyond 100%">
+                    </div>
+                    <div class="boost-control">
+                        <label for="bassControl">Super Bass</label>
+                        <input type="range" id="bassControl" min="0" max="25" step="1" value="0" title="Bass Booster">
+                    </div>
+                </div>
+            </div>
+        </footer>
+
+        <!-- Dynamic Background -->
+        <div class="dynamic-bg"></div>
+    </div>
+
+    <!-- Mobile Search Overlay -->
+    <div id="searchOverlay" class="mobile-overlay">
+        <div class="overlay-header">
+            <input type="text" id="mobileSearchInput" placeholder="Search for music...">
+            <button class="close-overlay">Cancel</button>
+        </div>
+        <div id="mobileSearchResults" class="overlay-content"></div>
+    </div>
+
+    <div id="yt-hidden-player"></div>
+    <script src="main.js"></script>
+</body>
+</html>
